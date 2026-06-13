@@ -1,0 +1,80 @@
+# =====================================================================
+# GSDMS - Production deployment (Ubuntu server) behind a single port
+#
+#   sudo docker compose -f docker-compose.prod.yml up -d --build
+#
+# Only Nginx is exposed on the host (port 8096). Frontend, backend and
+# MySQL stay on the internal docker network.
+#
+#   App      → http://SERVER_IP:8096
+#   Swagger  → http://SERVER_IP:8096/api/docs
+#   Login    → admin / Admin@1234
+#
+# IMPORTANT: change JWT_SECRET (and the DB passwords) before real use.
+# =====================================================================
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: gsdms-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: gsdms_root
+      MYSQL_DATABASE: gsdms
+      MYSQL_USER: gsdms
+      MYSQL_PASSWORD: gsdms_password
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pgsdms_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: gsdms-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3100"
+      DATABASE_URL: "mysql://gsdms:gsdms_password@db:3306/gsdms"
+      JWT_SECRET: "change-me-in-production-use-a-long-random-string-min-32-chars"
+      JWT_EXPIRES_IN: "8h"
+      JWT_REFRESH_EXPIRES_IN: "7d"
+      BCRYPT_ROUNDS: "12"
+    volumes:
+      - uploads_data:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Relative URL → the browser calls the same origin (host:8096),
+        # which Nginx proxies to the backend. Works with any IP/domain.
+        NEXT_PUBLIC_API_URL: "/api/v1"
+    container_name: gsdms-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: gsdms-nginx
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "8096:8096"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  db_data:
+  uploads_data:
