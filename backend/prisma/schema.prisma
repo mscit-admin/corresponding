@@ -285,6 +285,7 @@ model Attachment {
   correspondenceType  CorrespondenceType @map("correspondence_type")
   correspondenceId    BigInt             @map("correspondence_id")
   fileName            String             @map("file_name") @db.VarChar(500)
+  originalName        String             @map("original_name") @db.VarChar(500)
   filePath            String             @map("file_path") @db.VarChar(1000)
   fileSize            BigInt             @map("file_size")
   mimeType            String             @map("mime_type") @db.VarChar(150)

@@ -1,0 +1,70 @@
+# =====================================================================
+# GSDMS - Full stack (database + backend API + frontend)
+# Run everything with:  docker compose up --build
+#   Frontend  → http://localhost:3200   (login: admin / Admin@1234)
+#   API       → http://localhost:3100
+#   Swagger   → http://localhost:3100/api/docs
+# =====================================================================
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: gsdms-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: gsdms_root
+      MYSQL_DATABASE: gsdms
+      MYSQL_USER: gsdms
+      MYSQL_PASSWORD: gsdms_password
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pgsdms_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: gsdms-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3100"
+      DATABASE_URL: "mysql://gsdms:gsdms_password@db:3306/gsdms"
+      JWT_SECRET: "change-me-in-production-use-a-long-random-string-min-32-chars"
+      JWT_EXPIRES_IN: "8h"
+      JWT_REFRESH_EXPIRES_IN: "7d"
+      CORS_ORIGIN: "http://localhost:3200"
+      BCRYPT_ROUNDS: "12"
+    ports:
+      - "3100:3100"
+    volumes:
+      - uploads_data:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the browser bundle at build time → must be host-reachable
+        NEXT_PUBLIC_API_URL: "http://localhost:3100/api/v1"
+    container_name: gsdms-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      PORT: "3200"
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "3200:3200"
+
+volumes:
+  db_data:
+  uploads_data:
