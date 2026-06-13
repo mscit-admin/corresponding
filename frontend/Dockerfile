@@ -8,6 +8,9 @@ RUN npm install
 
 COPY . .
 
+# Ensure public/ exists (git does not track empty dirs) so the runner COPY works
+RUN mkdir -p public
+
 # NEXT_PUBLIC_* vars are inlined at build time and used by the browser,
 # so this must point to the host-reachable API URL (not the docker network).
 ARG NEXT_PUBLIC_API_URL=http://localhost:3100/api/v1
