@@ -1,0 +1,555 @@
+// =====================================================================
+// Government Smart Document Management System (GSDMS)
+// Prisma Schema - MySQL 8.0+
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// MODULE 1: IDENTITY & ACCESS
+// =====================================================================
+
+model Department {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  code        String    @unique @db.VarChar(50)
+  parentId    BigInt?   @map("parent_id")
+  managerId   BigInt?   @map("manager_id")
+  level       Int       @default(1) @db.UnsignedInt
+  description String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  parent      Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children    Department[] @relation("DepartmentHierarchy")
+  manager     User?        @relation("DepartmentManager", fields: [managerId], references: [id])
+  users       User[]       @relation("DepartmentUsers")
+  printers    Printer[]
+
+  @@index([parentId])
+  @@index([code])
+  @@map("departments")
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  nameAr      String   @map("name_ar") @db.VarChar(100)
+  description String?  @db.Text
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          BigInt  @id @default(autoincrement())
+  code        String  @unique @db.VarChar(150)
+  nameAr      String  @map("name_ar") @db.VarChar(255)
+  module      String  @db.VarChar(50)
+  action      String  @db.VarChar(50)
+  description String? @db.Text
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           BigInt   @id @default(autoincrement())
+  roleId       BigInt   @map("role_id")
+  permissionId BigInt   @map("permission_id")
+  grantedAt    DateTime @default(now()) @map("granted_at")
+  grantedBy    BigInt?  @map("granted_by")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                  BigInt    @id @default(autoincrement())
+  username            String    @unique @db.VarChar(100)
+  email               String    @unique @db.VarChar(255)
+  passwordHash        String    @map("password_hash") @db.VarChar(255)
+  fullName            String    @map("full_name") @db.VarChar(255)
+  fullNameAr          String?   @map("full_name_ar") @db.VarChar(255)
+  jobTitle            String?   @map("job_title") @db.VarChar(150)
+  phone               String?   @db.VarChar(20)
+  roleId              BigInt    @map("role_id")
+  departmentId        BigInt    @map("department_id")
+  isActive            Boolean   @default(true) @map("is_active")
+  mfaEnabled          Boolean   @default(false) @map("mfa_enabled")
+  mfaSecret           String?   @map("mfa_secret") @db.VarChar(255)
+  lastLoginAt         DateTime? @map("last_login_at")
+  passwordChangedAt   DateTime? @map("password_changed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  role                  Role                      @relation(fields: [roleId], references: [id])
+  department            Department                @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  managedDepartments    Department[]              @relation("DepartmentManager")
+  incomingCreated       IncomingCorrespondence[]  @relation("IncomingCreatedBy")
+  incomingOwned         IncomingCorrespondence[]  @relation("IncomingOwner")
+  outgoingCreated       OutgoingCorrespondence[]  @relation("OutgoingCreatedBy")
+  outgoingApproved      OutgoingCorrespondence[]  @relation("OutgoingApprovedBy")
+  outgoingOwned         OutgoingCorrespondence[]  @relation("OutgoingOwner")
+  attachmentsUploaded   Attachment[]
+  transfersFrom         Transfer[]                @relation("TransferFromUser")
+  transfersTo           Transfer[]                @relation("TransferToUser")
+  workflowsCreated      Workflow[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  printTemplatesCreated PrintTemplate[]
+  printsRequested       PrintLog[]                @relation("PrintRequester")
+  printsApproved        PrintLog[]                @relation("PrintApprover")
+
+  @@index([username])
+  @@index([email])
+  @@index([departmentId])
+  @@index([isActive])
+  @@map("users")
+}
+
+// =====================================================================
+// MODULE 2: CORRESPONDENCE CORE
+// =====================================================================
+
+enum EntityType {
+  government
+  private_sector
+  individual
+  international
+  ngo
+}
+
+enum Priority {
+  normal
+  urgent
+  top_secret
+}
+
+enum CorrespondenceType {
+  incoming
+  outgoing
+  internal
+}
+
+enum IncomingStatus {
+  new
+  in_progress
+  responded
+  closed
+  archived
+}
+
+enum OutgoingStatus {
+  draft
+  pending_review
+  pending_approval
+  approved
+  sent
+  archived
+}
+
+enum OcrStatus {
+  pending
+  processing
+  completed
+  failed
+  not_applicable
+}
+
+model ExternalEntity {
+  id           BigInt     @id @default(autoincrement())
+  name         String     @db.VarChar(255)
+  nameAr       String     @map("name_ar") @db.VarChar(255)
+  type         EntityType
+  contactEmail String?    @map("contact_email") @db.VarChar(255)
+  phone        String?    @db.VarChar(50)
+  fax          String?    @db.VarChar(50)
+  address      String?    @db.Text
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  incomingSent     IncomingCorrespondence[]
+  outgoingReceived OutgoingCorrespondence[]
+
+  @@index([nameAr])
+  @@index([type])
+  @@map("external_entities")
+}
+
+model Category {
+  id              BigInt   @id @default(autoincrement())
+  name            String   @db.VarChar(150)
+  parentId        BigInt?  @map("parent_id")
+  retentionYears  Int      @default(5) @map("retention_years") @db.UnsignedInt
+  defaultPriority Priority @default(normal) @map("default_priority")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  parent   Category?                 @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[]                @relation("CategoryHierarchy")
+  incoming IncomingCorrespondence[]
+  outgoing OutgoingCorrespondence[]
+  workflows Workflow[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model IncomingCorrespondence {
+  id                BigInt         @id @default(autoincrement())
+  serialNo          String         @unique @map("serial_no") @db.VarChar(50)
+  receivedAt        DateTime       @map("received_at")
+  senderEntityId   BigInt         @map("sender_entity_id")
+  senderRefNo       String?        @map("sender_ref_no") @db.VarChar(100)
+  originalDate      DateTime?      @map("original_date") @db.Date
+  subject           String         @db.Text
+  priority          Priority       @default(normal)
+  categoryId        BigInt?        @map("category_id")
+  currentOwnerId    BigInt?        @map("current_owner_id")
+  status            IncomingStatus @default(new)
+  dueDate           DateTime?      @map("due_date")
+  createdBy         BigInt         @map("created_by")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  senderEntity  ExternalEntity           @relation(fields: [senderEntityId], references: [id])
+  category      Category?                @relation(fields: [categoryId], references: [id])
+  currentOwner  User?                    @relation("IncomingOwner", fields: [currentOwnerId], references: [id])
+  creator       User                     @relation("IncomingCreatedBy", fields: [createdBy], references: [id])
+  outgoingReply OutgoingCorrespondence[]
+
+  @@index([serialNo])
+  @@index([receivedAt])
+  @@index([status])
+  @@index([currentOwnerId])
+  @@index([priority])
+  @@map("incoming_correspondence")
+}
+
+model OutgoingCorrespondence {
+  id                  BigInt         @id @default(autoincrement())
+  serialNo            String         @unique @map("serial_no") @db.VarChar(50)
+  sentAt              DateTime?      @map("sent_at")
+  recipientEntityId   BigInt         @map("recipient_entity_id")
+  subject             String         @db.Text
+  body                String         @db.LongText
+  priority            Priority       @default(normal)
+  categoryId          BigInt?        @map("category_id")
+  replyToId           BigInt?        @map("reply_to_id")
+  currentOwnerId      BigInt?        @map("current_owner_id")
+  status              OutgoingStatus @default(draft)
+  approvedBy          BigInt?        @map("approved_by")
+  approvedAt          DateTime?      @map("approved_at")
+  createdBy           BigInt         @map("created_by")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  recipientEntity ExternalEntity          @relation(fields: [recipientEntityId], references: [id])
+  category        Category?               @relation(fields: [categoryId], references: [id])
+  replyTo         IncomingCorrespondence? @relation(fields: [replyToId], references: [id])
+  currentOwner    User?                   @relation("OutgoingOwner", fields: [currentOwnerId], references: [id])
+  approver        User?                   @relation("OutgoingApprovedBy", fields: [approvedBy], references: [id])
+  creator         User                    @relation("OutgoingCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([serialNo])
+  @@index([sentAt])
+  @@index([status])
+  @@index([replyToId])
+  @@map("outgoing_correspondence")
+}
+
+model Attachment {
+  id                  BigInt             @id @default(autoincrement())
+  correspondenceType  CorrespondenceType @map("correspondence_type")
+  correspondenceId    BigInt             @map("correspondence_id")
+  fileName            String             @map("file_name") @db.VarChar(500)
+  filePath            String             @map("file_path") @db.VarChar(1000)
+  fileSize            BigInt             @map("file_size")
+  mimeType            String             @map("mime_type") @db.VarChar(150)
+  fileHash            String?            @map("file_hash") @db.VarChar(64)
+  ocrText             String?            @map("ocr_text") @db.LongText
+  ocrStatus           OcrStatus          @default(pending) @map("ocr_status")
+  ocrConfidence       Decimal?           @map("ocr_confidence") @db.Decimal(5, 2)
+  uploadedBy          BigInt             @map("uploaded_by")
+  uploadedAt          DateTime           @default(now()) @map("uploaded_at")
+
+  uploader User @relation(fields: [uploadedBy], references: [id])
+
+  @@index([correspondenceType, correspondenceId])
+  @@index([ocrStatus])
+  @@map("attachments")
+}
+
+// =====================================================================
+// MODULE 3: WORKFLOW & OPERATIONS
+// =====================================================================
+
+enum TransferAction {
+  for_review
+  for_info
+  for_study
+  for_reply
+  for_execution
+  for_opinion
+  for_archive
+}
+
+enum TransferStatus {
+  pending
+  acknowledged
+  completed
+  rejected
+  cancelled
+}
+
+enum WorkflowStatus {
+  running
+  paused
+  completed
+  cancelled
+  failed
+}
+
+enum NotificationType {
+  transfer
+  approval
+  reminder
+  system
+  mention
+}
+
+model Transfer {
+  id                  BigInt             @id @default(autoincrement())
+  correspondenceType  CorrespondenceType @map("correspondence_type")
+  correspondenceId    BigInt             @map("correspondence_id")
+  fromUserId          BigInt             @map("from_user_id")
+  toUserId            BigInt             @map("to_user_id")
+  actionType          TransferAction     @map("action_type")
+  notes               String?            @db.Text
+  dueDate             DateTime?          @map("due_date")
+  status              TransferStatus     @default(pending)
+  responseNotes       String?            @map("response_notes") @db.Text
+  transferredAt       DateTime           @default(now()) @map("transferred_at")
+  acknowledgedAt      DateTime?          @map("acknowledged_at")
+  completedAt         DateTime?          @map("completed_at")
+
+  fromUser User @relation("TransferFromUser", fields: [fromUserId], references: [id])
+  toUser   User @relation("TransferToUser", fields: [toUserId], references: [id])
+
+  @@index([correspondenceType, correspondenceId])
+  @@index([toUserId, status])
+  @@index([fromUserId])
+  @@index([dueDate])
+  @@map("transfers")
+}
+
+model Workflow {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  categoryId  BigInt?  @map("category_id")
+  definition  Json
+  version     Int      @default(1) @db.UnsignedInt
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   BigInt   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category  Category?           @relation(fields: [categoryId], references: [id])
+  creator   User                @relation(fields: [createdBy], references: [id])
+  instances WorkflowInstance[]
+
+  @@index([isActive])
+  @@map("workflows")
+}
+
+model WorkflowInstance {
+  id                  BigInt             @id @default(autoincrement())
+  workflowId          BigInt             @map("workflow_id")
+  correspondenceType  CorrespondenceType @map("correspondence_type")
+  correspondenceId    BigInt             @map("correspondence_id")
+  currentStep         Int                @default(1) @map("current_step") @db.UnsignedInt
+  status              WorkflowStatus     @default(running)
+  stateData           Json?              @map("state_data")
+  startedAt           DateTime           @default(now()) @map("started_at")
+  completedAt         DateTime?          @map("completed_at")
+
+  workflow Workflow @relation(fields: [workflowId], references: [id])
+
+  @@index([workflowId])
+  @@index([correspondenceType, correspondenceId])
+  @@index([status])
+  @@map("workflow_instances")
+}
+
+model Notification {
+  id          BigInt           @id @default(autoincrement())
+  userId      BigInt           @map("user_id")
+  type        NotificationType
+  title       String           @db.VarChar(255)
+  body        String?          @db.Text
+  actionUrl   String?          @map("action_url") @db.VarChar(500)
+  relatedType String?          @map("related_type") @db.VarChar(50)
+  relatedId   BigInt?          @map("related_id")
+  isRead      Boolean          @default(false) @map("is_read")
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// IMMUTABLE - No UPDATE or DELETE allowed (enforced by DB triggers)
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt   @map("user_id")
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   BigInt?  @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String   @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.Text
+  sessionId  String?  @map("session_id") @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// =====================================================================
+// MODULE 4: PRINTING SYSTEM
+// =====================================================================
+
+enum TemplateType {
+  incoming_letter
+  outgoing_letter
+  memo
+  report
+  certified_copy
+}
+
+enum PrinterProtocol {
+  ipp
+  ipps
+  lpd
+  socket
+}
+
+enum CopyType {
+  original
+  copy
+  certified_copy
+}
+
+enum PrintStatus {
+  pending
+  printing
+  success
+  failed
+  cancelled
+}
+
+model PrintTemplate {
+  id           BigInt       @id @default(autoincrement())
+  name         String       @db.VarChar(255)
+  type         TemplateType
+  htmlTemplate String       @map("html_template") @db.LongText
+  variables    Json?
+  isActive     Boolean      @default(true) @map("is_active")
+  createdBy    BigInt       @map("created_by")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  creator   User       @relation(fields: [createdBy], references: [id])
+  printLogs PrintLog[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("print_templates")
+}
+
+model Printer {
+  id                    BigInt          @id @default(autoincrement())
+  name                  String          @db.VarChar(255)
+  ipAddress             String          @map("ip_address") @db.VarChar(45)
+  port                  Int             @default(631)
+  protocol              PrinterProtocol @default(ipps)
+  location              String?         @db.VarChar(255)
+  departmentId          BigInt          @map("department_id")
+  supportsPullPrinting  Boolean         @default(false) @map("supports_pull_printing")
+  isActive              Boolean         @default(true) @map("is_active")
+  createdAt             DateTime        @default(now()) @map("created_at")
+
+  department Department @relation(fields: [departmentId], references: [id])
+  printLogs  PrintLog[]
+
+  @@index([departmentId])
+  @@index([isActive])
+  @@map("printers")
+}
+
+/// IMMUTABLE for critical fields - status transitions only (enforced by triggers)
+model PrintLog {
+  id                  BigInt             @id @default(autoincrement())
+  printSerial         String             @unique @map("print_serial") @db.VarChar(50)
+  correspondenceType  CorrespondenceType @map("correspondence_type")
+  correspondenceId    BigInt             @map("correspondence_id")
+  templateId          BigInt             @map("template_id")
+  userId              BigInt             @map("user_id")
+  approverId          BigInt?            @map("approver_id")
+  copiesCount         Int                @default(1) @map("copies_count") @db.UnsignedInt
+  copyType            CopyType           @default(copy) @map("copy_type")
+  purpose             String             @db.VarChar(200)
+  printerId           BigInt             @map("printer_id")
+  ipAddress           String             @map("ip_address") @db.VarChar(45)
+  userAgent           String?            @map("user_agent") @db.Text
+  watermarkText       String?            @map("watermark_text") @db.Text
+  qrPayload           String?            @map("qr_payload") @db.Text
+  qrHash              String?            @unique @map("qr_hash") @db.VarChar(64)
+  status              PrintStatus        @default(pending)
+  errorMessage        String?            @map("error_message") @db.Text
+  pdfStoragePath      String?            @map("pdf_storage_path") @db.VarChar(1000)
+  requestedAt         DateTime           @default(now()) @map("requested_at")
+  completedAt         DateTime?          @map("completed_at")
+
+  template PrintTemplate @relation(fields: [templateId], references: [id])
+  user     User          @relation("PrintRequester", fields: [userId], references: [id])
+  approver User?         @relation("PrintApprover", fields: [approverId], references: [id])
+  printer  Printer       @relation(fields: [printerId], references: [id])
+
+  @@index([correspondenceType, correspondenceId])
+  @@index([userId, requestedAt])
+  @@index([printSerial])
+  @@index([qrHash])
+  @@index([status, requestedAt])
+  @@map("print_logs")
+}

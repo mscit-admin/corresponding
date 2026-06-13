@@ -1,0 +1,91 @@
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
+import { LoginDto, LoginResponseDto } from './dto/login.dto';
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async login(dto: LoginDto, ipAddress: string, userAgent?: string): Promise<LoginResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { username: dto.username },
+      include: {
+        role: true,
+        department: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('الحساب معطل، يرجى التواصل مع مدير النظام');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isPasswordValid) {
+      // Audit failed login attempt
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'LOGIN_FAILED',
+          entityType: 'User',
+          entityId: user.id,
+          ipAddress,
+          userAgent,
+        },
+      });
+      throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
+    }
+
+    // Update last login
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // Audit successful login
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'LOGIN_SUCCESS',
+        entityType: 'User',
+        entityId: user.id,
+        ipAddress,
+        userAgent,
+      },
+    });
+
+    const accessToken = await this.jwt.signAsync({
+      sub: user.id.toString(),
+      username: user.username,
+    });
+
+    return {
+      accessToken,
+      user: {
+        id: user.id.toString(),
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role.nameAr,
+        department: user.department.name,
+      },
+    };
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    const rounds = this.config.get<number>('security.bcryptRounds') || 12;
+    return bcrypt.hash(password, rounds);
+  }
+}
