@@ -47,7 +47,7 @@ services:
       JWT_SECRET: "change-me-in-production-use-a-long-random-string-min-32-chars"
       JWT_EXPIRES_IN: "8h"
       JWT_REFRESH_EXPIRES_IN: "7d"
-      BCRYPT_ROUNDS: "12"
+      BCRYPT_ROUNDS: "10"
     volumes:
       - uploads_data:/app/uploads
 

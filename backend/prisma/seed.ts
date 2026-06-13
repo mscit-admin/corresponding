@@ -87,11 +87,15 @@ async function main() {
 
   // ----- ADMIN USER -----
   const adminRole = roles.find((r) => r.name === 'super_admin')!;
-  const passwordHash = await bcrypt.hash('Admin@1234', 12);
+  // 10 rounds keeps login fast on modest servers while staying secure.
+  // Configurable via BCRYPT_ROUNDS. update re-hashes existing users so the
+  // cost change applies on the next seed run too.
+  const rounds = Number(process.env.BCRYPT_ROUNDS) || 10;
+  const passwordHash = await bcrypt.hash('Admin@1234', rounds);
 
   await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {},
+    update: { passwordHash },
     create: {
       username: 'admin',
       email: 'admin@gsdms.local',
@@ -110,7 +114,7 @@ async function main() {
   const empRole = roles.find((r) => r.name === 'dept_manager')!;
   await prisma.user.upsert({
     where: { username: 'ahmed.mohamed' },
-    update: {},
+    update: { passwordHash },
     create: {
       username: 'ahmed.mohamed',
       email: 'ahmed.mohamed@gsdms.local',

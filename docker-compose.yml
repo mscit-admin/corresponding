@@ -43,7 +43,7 @@ services:
       JWT_EXPIRES_IN: "8h"
       JWT_REFRESH_EXPIRES_IN: "7d"
       CORS_ORIGIN: "http://localhost:3200"
-      BCRYPT_ROUNDS: "12"
+      BCRYPT_ROUNDS: "10"
     ports:
       - "3100:3100"
     volumes:
