@@ -91,7 +91,10 @@ async function main() {
   // Configurable via BCRYPT_ROUNDS. update re-hashes existing users so the
   // cost change applies on the next seed run too.
   const rounds = Number(process.env.BCRYPT_ROUNDS) || 10;
-  const passwordHash = await bcrypt.hash('Admin@1234', rounds);
+  // Set ADMIN_PASSWORD in the environment to use a secret admin password.
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@1234';
+  const passwordHash = await bcrypt.hash(adminPassword, rounds);
+  const demoHash = await bcrypt.hash('Admin@1234', rounds);
 
   await prisma.user.upsert({
     where: { username: 'admin' },
@@ -108,17 +111,17 @@ async function main() {
       isActive: true,
     },
   });
-  console.log(`  ✓ Admin user created (username: admin, password: Admin@1234)`);
+  console.log(`  ✓ Admin user ready (username: admin)`);
 
-  // ----- SAMPLE EMPLOYEE -----
+  // ----- SAMPLE EMPLOYEE (demo account, password: Admin@1234) -----
   const empRole = roles.find((r) => r.name === 'dept_manager')!;
   await prisma.user.upsert({
     where: { username: 'ahmed.mohamed' },
-    update: { passwordHash },
+    update: { passwordHash: demoHash },
     create: {
       username: 'ahmed.mohamed',
       email: 'ahmed.mohamed@gsdms.local',
-      passwordHash,
+      passwordHash: demoHash,
       fullName: 'Ahmed Mohamed',
       fullNameAr: 'أحمد محمد',
       jobTitle: 'مدير الميزانية',

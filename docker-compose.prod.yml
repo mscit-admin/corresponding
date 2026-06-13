@@ -48,6 +48,9 @@ services:
       JWT_EXPIRES_IN: "8h"
       JWT_REFRESH_EXPIRES_IN: "7d"
       BCRYPT_ROUNDS: "10"
+      # Admin login password — CHANGE THIS to a strong secret before real use.
+      # Applied to the 'admin' account on every (re)start.
+      ADMIN_PASSWORD: "Admin@1234"
     volumes:
       - uploads_data:/app/uploads
 
