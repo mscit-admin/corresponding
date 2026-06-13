@@ -109,7 +109,10 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
       </Link>
 
       <div className="flex flex-col gap-1 text-xs text-slate-600 mb-3">
-        <div className="flex items-center gap-1.5"><IconBuilding className="w-3.5 h-3.5 text-slate-400" /><span>الجهة: <span className="text-slate-900">{item.senderEntity?.nameAr}</span></span></div>
+        <div className="flex items-center gap-1.5"><IconBuilding className="w-3.5 h-3.5 text-slate-400" /><span>من: <span className="text-slate-900">{item.senderEntity?.nameAr}</span></span></div>
+        {item.recipientName && (
+          <div className="flex items-center gap-1.5"><IconUser className="w-3.5 h-3.5 text-slate-400" /><span>إلى: <span className="text-slate-900">{item.recipientName}</span></span></div>
+        )}
         <div className="flex items-center gap-1.5"><IconCalendar className="w-3.5 h-3.5 text-slate-400" /><span>وردت: {formatDateAr(item.receivedAt)}</span></div>
       </div>
 

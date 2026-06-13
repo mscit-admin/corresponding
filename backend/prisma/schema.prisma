@@ -221,6 +221,8 @@ model IncomingCorrespondence {
   receivedAt        DateTime       @map("received_at")
   senderEntityId   BigInt         @map("sender_entity_id")
   senderRefNo       String?        @map("sender_ref_no") @db.VarChar(100)
+  recipientType     String?        @map("recipient_type") @db.VarChar(20)
+  recipientName     String?        @map("recipient_name") @db.VarChar(255)
   originalDate      DateTime?      @map("original_date") @db.Date
   subject           String         @db.Text
   priority          Priority       @default(normal)

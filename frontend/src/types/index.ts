@@ -50,6 +50,8 @@ export interface IncomingCorrespondence {
   subject: string;
   priority: Priority;
   status: IncomingStatus;
+  recipientType?: 'internal' | 'external';
+  recipientName?: string;
   dueDate?: string;
   createdAt: string;
   updatedAt: string;

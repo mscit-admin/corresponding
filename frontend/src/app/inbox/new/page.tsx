@@ -13,6 +13,7 @@ import {
   IconUpload, IconFile, IconTrash, IconScan, IconBuilding, IconUsers,
 } from '@tabler/icons-react';
 import { incomingApi } from '@/lib/api';
+import { ScannerCapture } from '@/components/ScannerCapture';
 import axios from 'axios';
 
 const schema = z.object({
@@ -54,6 +55,7 @@ function NewIncomingInner() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
@@ -79,7 +81,7 @@ function NewIncomingInner() {
         priority: data.priority,
         recipientType: data.recipientType,
         recipientName: data.recipientName,
-      } as any);
+      });
 
       // Upload file if provided
       if (file && created?.id) {
@@ -307,15 +309,12 @@ function NewIncomingInner() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toast.info('تعليمات السكانر', {
-                      description: 'استخدم Windows Fax and Scan أو برنامج السكانر لمسح المستند، احفظه على سطح المكتب، ثم اضغط هنا واختر الملف',
-                      duration: 6000,
-                    });
+                    setShowScanner(true);
                   }}
                   className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1"
                 >
                   <IconScan className="w-3.5 h-3.5" />
-                  المسح من السكانر؟ اضغط للتعليمات
+                  مسح المستند عن طريق السكانر
                 </button>
               </div>
             </div>
@@ -357,6 +356,16 @@ function NewIncomingInner() {
           </div>
         </div>
       </form>
+
+      {showScanner && (
+        <ScannerCapture
+          onCapture={(scannedFile) => {
+            setFile(scannedFile);
+            toast.success('تم مسح المستند بنجاح، سيُرفق عند حفظ المراسلة');
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }

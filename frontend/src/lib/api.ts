@@ -59,6 +59,8 @@ export const incomingApi = {
     subject: string;
     priority?: string;
     senderRefNo?: string;
+    recipientType?: 'internal' | 'external';
+    recipientName?: string;
   }) =>
     api.post<IncomingCorrespondence>('/correspondence/incoming', data).then((r) => r.data),
 };

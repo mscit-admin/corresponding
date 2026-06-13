@@ -52,6 +52,15 @@ function CorrespondenceDetailsPageInner() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs p-3 bg-slate-50 rounded-md">
           <div><span className="text-slate-500">الجهة المرسلة:</span> <span className="font-medium">{data.senderEntity?.nameAr}</span></div>
+          {data.recipientName && (
+            <div>
+              <span className="text-slate-500">الجهة المرسل إليها:</span>{' '}
+              <span className="font-medium">{data.recipientName}</span>
+              {data.recipientType && (
+                <span className="text-slate-400"> ({data.recipientType === 'internal' ? 'داخلية' : 'خارجية'})</span>
+              )}
+            </div>
+          )}
           {data.senderRefNo && <div><span className="text-slate-500">رقم المرسل:</span> <span className="font-mono">{data.senderRefNo}</span></div>}
           <div><span className="text-slate-500">تاريخ ورودها:</span> <span>{formatDateTimeAr(data.receivedAt)}</span></div>
           {data.dueDate && <div><span className="text-slate-500">المهلة:</span> <span className="text-amber-700 font-medium">{formatDateAr(data.dueDate)}</span></div>}
