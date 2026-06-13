@@ -6,7 +6,7 @@ WORKDIR /app
 # Install dependencies (including dev deps needed for build, prisma & seed)
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm install
 
 # Build app
 COPY . .
