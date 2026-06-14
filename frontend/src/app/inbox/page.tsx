@@ -1,8 +1,9 @@
 'use client';
 
 import { AuthLayout } from '@/components/layout/AuthLayout';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   IconPlus, IconFilter, IconFileText, IconBuilding, IconUser, IconCalendar,
   IconAlertTriangle, IconInbox, IconEye, IconSend, IconPrinter, IconArchive,
@@ -29,9 +30,16 @@ const statusLabels: Record<string, { text: string; class: string }> = {
 };
 
 function InboxPageInner() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams.get('q') || '';
   const [filter, setFilter] = useState<string | undefined>(undefined);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [search, setSearch] = useState(initialQ);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQ);
+
+  // keep the box in sync with the header search (?q= in the URL)
+  useEffect(() => {
+    setSearch(searchParams.get('q') || '');
+  }, [searchParams]);
 
   // debounce the search input so we don't query on every keystroke
   useEffect(() => {
@@ -182,7 +190,9 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
 export default function InboxPage() {
   return (
     <AuthLayout>
-      <InboxPageInner />
+      <Suspense fallback={<div className="text-center py-10 text-slate-500">جارٍ التحميل...</div>}>
+        <InboxPageInner />
+      </Suspense>
     </AuthLayout>
   );
 }

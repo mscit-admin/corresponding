@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -24,6 +24,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { token, user, logout } = useAuthStore();
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!token) router.push('/login');
@@ -50,10 +51,21 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="flex-1 max-w-md relative hidden md:block">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              router.push(`/inbox?q=${encodeURIComponent(search.trim())}`);
+            }}
+            className="flex-1 max-w-md relative hidden md:block"
+          >
             <IconSearch className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input className="input pr-10" placeholder="ابحث برقم المراسلة، الموضوع، أو الجهة..." />
-          </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input pr-10"
+              placeholder="ابحث برقم المراسلة، الموضوع، أو الجهة..."
+            />
+          </form>
 
           <div className="flex items-center gap-3 shrink-0">
             <button className="relative p-2 rounded-md hover:bg-slate-100" aria-label="إشعارات">
