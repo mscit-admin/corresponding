@@ -54,6 +54,7 @@ function NewIncomingInner() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
@@ -305,17 +306,32 @@ function NewIncomingInner() {
               <div className="mt-3 pt-3 border-t border-slate-200 space-y-1.5">
                 <button
                   type="button"
-                  onClick={(e) => {
+                  disabled={scanning}
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    fileInputRef.current?.click();
+                    const agent = process.env.NEXT_PUBLIC_SCANNER_AGENT_URL || 'http://localhost:8723';
+                    try {
+                      setScanning(true);
+                      toast.info('جارٍ المسح... تابع نافذة الماسحة على جهازك');
+                      const res = await fetch(`${agent}/scan`);
+                      if (!res.ok) throw new Error('scan failed');
+                      const blob = await res.blob();
+                      const scanned = new File([blob], `scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                      handleFileSelect(scanned);
+                      toast.success('تم مسح المستند بنجاح');
+                    } catch {
+                      toast.error('تعذّر الاتصال ببرنامج الماسحة. تأكد أن "GSDMS Scanner Agent" يعمل على جهازك.');
+                    } finally {
+                      setScanning(false);
+                    }
                   }}
-                  className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1"
+                  className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50"
                 >
                   <IconScan className="w-3.5 h-3.5" />
-                  مسح المستند عن طريق السكانر
+                  {scanning ? 'جارٍ المسح...' : 'مسح المستند عن طريق السكانر'}
                 </button>
                 <div className="text-[10px] text-slate-400 leading-relaxed">
-                  امسح المستند ببرنامج الماسحة الضوئية (أو Windows Scan / NAPS2)، احفظه PDF أو صورة، ثم اختره من هنا.
+                  يتطلب تشغيل برنامج «GSDMS Scanner Agent» على جهازك. أو اسحب/اختر ملفاً ممسوحاً مسبقاً.
                 </div>
               </div>
             </div>
