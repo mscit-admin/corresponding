@@ -46,10 +46,13 @@ while ($listener.IsListening) {
     $req = $ctx.Request
     $res = $ctx.Response
 
-    # CORS - allow the system (on any address) to reach the local agent
+    # CORS - allow the system (on any address) to reach the local agent.
+    # Access-Control-Allow-Private-Network is required when the site is served
+    # from a public IP/domain and calls localhost (Chrome Private Network Access).
     $res.Headers.Add("Access-Control-Allow-Origin", "*")
     $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     $res.Headers.Add("Access-Control-Allow-Headers", "*")
+    $res.Headers.Add("Access-Control-Allow-Private-Network", "true")
 
     try {
         if ($req.HttpMethod -eq "OPTIONS") {
