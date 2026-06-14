@@ -1,10 +1,14 @@
 # ============================================================================
 #  GSDMS Scanner Agent
-#  جسر محلي بين متصفح النظام والماسحة الضوئية (WIA) على ويندوز.
-#  يعمل بدون أي تثبيت إضافي — يكفي PowerShell المدمج في ويندوز.
+#  Local bridge between the system's browser and a WIA scanner on Windows.
+#  No installation required - uses built-in Windows PowerShell.
 #
-#  التشغيل: شغّل ملف  start-scanner-agent.bat  (كمسؤول).
-#  ثم اضغط زر "مسح المستند عن طريق السكانر" داخل النظام.
+#  Run: right-click  start-scanner-agent.bat  -> Run as administrator.
+#  Then click "Scan via scanner" inside the system.
+#
+#  NOTE: keep this file ASCII-only. Windows PowerShell 5.1 reads .ps1 as the
+#  system ANSI codepage unless the file has a UTF-8 BOM, so non-ASCII text
+#  (e.g. Arabic) here would corrupt the script.
 # ============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -20,16 +24,16 @@ $listener.Prefixes.Add("http://127.0.0.1:$port/")
 try {
     $listener.Start()
 } catch {
-    Write-Host "تعذّر بدء الخادم على المنفذ $port. شغّل الملف كمسؤول، أو تأكد أن المنفذ غير مستخدم." -ForegroundColor Red
-    Read-Host "اضغط Enter للخروج"
+    Write-Host "Could not start the server on port $port. Run as administrator, or free the port." -ForegroundColor Red
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
 Write-Host "==============================================" -ForegroundColor Green
-Write-Host " GSDMS Scanner Agent يعمل الآن" -ForegroundColor Green
-Write-Host " العنوان: http://localhost:$port" -ForegroundColor Green
-Write-Host " اترك هذه النافذة مفتوحة أثناء العمل." -ForegroundColor Green
-Write-Host " للإيقاف: أغلق النافذة." -ForegroundColor Green
+Write-Host " GSDMS Scanner Agent is running" -ForegroundColor Green
+Write-Host " Address: http://localhost:$port" -ForegroundColor Green
+Write-Host " Keep this window open while working." -ForegroundColor Green
+Write-Host " To stop: close this window." -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Green
 
 while ($listener.IsListening) {
@@ -42,7 +46,7 @@ while ($listener.IsListening) {
     $req = $ctx.Request
     $res = $ctx.Response
 
-    # CORS — يسمح للنظام (على أي عنوان) بالاتصال بالوكيل المحلي
+    # CORS - allow the system (on any address) to reach the local agent
     $res.Headers.Add("Access-Control-Allow-Origin", "*")
     $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     $res.Headers.Add("Access-Control-Allow-Headers", "*")
@@ -65,7 +69,7 @@ while ($listener.IsListening) {
         }
 
         if ($path -eq "/scan") {
-            Write-Host "» طلب مسح جديد — تابع نافذة الماسحة على الشاشة..." -ForegroundColor Cyan
+            Write-Host "> Scan request - follow the scanner dialog on screen..." -ForegroundColor Cyan
 
             $cd = New-Object -ComObject WIA.CommonDialog
             # (DeviceType=Scanner, Intent=Unspecified, Bias=0, Format=JPEG,
@@ -80,7 +84,7 @@ while ($listener.IsListening) {
             $res.ContentType = "image/jpeg"
             $res.OutputStream.Write($bytes, 0, $bytes.Length)
             $res.Close()
-            Write-Host "✓ تم المسح بنجاح ($([math]::Round($bytes.Length/1024)) كيلوبايت)." -ForegroundColor Green
+            Write-Host ("OK - scanned " + [math]::Round($bytes.Length / 1024) + " KB") -ForegroundColor Green
             continue
         }
 
@@ -88,11 +92,10 @@ while ($listener.IsListening) {
         $res.Close()
     } catch {
         $msg = $_.Exception.Message
-        Write-Host "× خطأ: $msg" -ForegroundColor Yellow
+        Write-Host ("x Error: " + $msg) -ForegroundColor Yellow
         try {
             $res.StatusCode = 500
-            $payload = ConvertTo-Json @{ error = $msg }
-            $err = [Text.Encoding]::UTF8.GetBytes($payload)
+            $err = [Text.Encoding]::UTF8.GetBytes((ConvertTo-Json @{ error = $msg }))
             $res.ContentType = "application/json"
             $res.OutputStream.Write($err, 0, $err.Length)
             $res.Close()
