@@ -14,6 +14,7 @@ import {
 import { incomingApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
+import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
 
@@ -240,19 +241,24 @@ function EditIncomingInner() {
           </div>
         </div>
 
+        {/* المرفقات الحالية */}
+        <div className="card space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <IconPaperclip className="w-4 h-4 text-slate-400" /> المرفقات الحالية
+            {!!data?.attachments?.length && <span className="text-slate-400 font-normal">({data.attachments.length})</span>}
+          </h2>
+          <ExistingAttachments
+            attachments={data?.attachments}
+            onChange={() => queryClient.invalidateQueries({ queryKey: ['incoming', id] })}
+          />
+        </div>
+
         {/* إضافة مستندات */}
         <div className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <IconUpload className="w-4 h-4 text-slate-400" /> إضافة مستندات
-            </h2>
-            {!!data?.attachments?.length && (
-              <span className="text-xs text-slate-500 inline-flex items-center gap-1">
-                <IconPaperclip className="w-3.5 h-3.5" /> مرفقات حالية: {data.attachments.length}
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400">يمكنك إضافة صور/ملفات جديدة (لن تُحذف المرفقات الحالية).</p>
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <IconUpload className="w-4 h-4 text-slate-400" /> إضافة مستندات جديدة
+          </h2>
+          <p className="text-[11px] text-slate-400">الملفات الجديدة تُضاف عند الحفظ (لن تُحذف المرفقات الحالية).</p>
           <MultiFileUpload files={files} onAdd={addFiles} onRemove={removeFile} />
         </div>
 

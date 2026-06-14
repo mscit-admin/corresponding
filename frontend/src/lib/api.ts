@@ -83,4 +83,5 @@ export const attachmentsApi = {
   // Fetch an attachment as a Blob (sends the JWT via the axios interceptor)
   download: (id: string) =>
     api.get(`/attachments/${id}/download`, { responseType: 'blob' }).then((r) => r.data as Blob),
+  remove: (id: string) => api.delete(`/attachments/${id}`).then((r) => r.data),
 };

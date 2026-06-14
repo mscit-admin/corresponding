@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { join } from 'path';
+import { existsSync, unlinkSync } from 'fs';
 import { PrismaService } from '../prisma/prisma.service';
 
 const serializeBigInt = (obj: any) =>
@@ -60,12 +62,32 @@ export class AttachmentsService {
 
   async findById(id: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, file_name as fileName, original_name as originalName, 
+      `SELECT id, file_name as fileName, original_name as originalName,
               file_path as filePath, mime_type as mimeType, file_size as fileSize
        FROM attachments WHERE id = ?`,
       BigInt(id),
     );
     if (!rows || rows.length === 0) return null;
     return serializeBigInt(rows[0]);
+  }
+
+  async remove(id: string): Promise<boolean> {
+    const attachment = await this.findById(id);
+    if (!attachment) return false;
+
+    // delete the DB row
+    await this.prisma.$executeRawUnsafe(`DELETE FROM attachments WHERE id = ?`, BigInt(id));
+
+    // best-effort delete of the file on disk
+    try {
+      const uploadsDir = join(process.cwd(), 'uploads');
+      const filePath = join(uploadsDir, attachment.fileName);
+      if (existsSync(filePath)) unlinkSync(filePath);
+    } catch (e) {
+      this.logger.warn(`Could not delete file for attachment ${id}: ${e.message}`);
+    }
+
+    this.logger.log(`✓ Deleted attachment id: ${id}`);
+    return true;
   }
 }

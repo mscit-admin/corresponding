@@ -1,6 +1,6 @@
-import { 
-  Controller, Post, Get, Param, UploadedFile, UseInterceptors, 
-  UseGuards, Req, Res, BadRequestException, NotFoundException 
+import {
+  Controller, Post, Get, Delete, Param, UploadedFile, UseInterceptors,
+  UseGuards, Req, Res, BadRequestException, NotFoundException, ForbiddenException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -84,5 +84,17 @@ export class AttachmentsController {
     res.setHeader('Content-Type', attachment.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.originalName)}"`);
     return res.sendFile(filePath);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'حذف مرفق (يتطلب صلاحية التعديل)' })
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const roleName = req.user?.role?.name;
+    if (!['super_admin', 'archive_mgr', 'diwan_officer'].includes(roleName)) {
+      throw new ForbiddenException('ليس لديك صلاحية حذف المرفقات');
+    }
+    const deleted = await this.service.remove(id);
+    if (!deleted) throw new NotFoundException('المرفق غير موجود');
+    return { success: true };
   }
 }
