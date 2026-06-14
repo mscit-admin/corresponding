@@ -165,6 +165,10 @@ export class IncomingService {
     if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.recipientType !== undefined) updateData.recipientType = data.recipientType || null;
     if (data.recipientName !== undefined) updateData.recipientName = data.recipientName || null;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.currentOwnerId !== undefined) {
+      updateData.currentOwnerId = data.currentOwnerId ? BigInt(data.currentOwnerId) : null;
+    }
 
     try {
       const updated = await this.prisma.incomingCorrespondence.update({

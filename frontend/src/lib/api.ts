@@ -63,6 +63,8 @@ export const incomingApi = {
       senderRefNo?: string;
       recipientType?: 'internal' | 'external';
       recipientName?: string;
+      status?: string;
+      currentOwnerId?: string;
     },
   ) => api.patch<IncomingCorrespondence>(`/correspondence/incoming/${id}`, data).then((r) => r.data),
   create: (data: {

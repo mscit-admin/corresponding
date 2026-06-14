@@ -2,16 +2,18 @@
 
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  IconArrowRight, IconInfoCircle, IconCheck, IconX, IconUsers, IconBuilding, IconLock,
+  IconArrowRight, IconInfoCircle, IconCheck, IconX, IconUsers, IconBuilding, IconLock, IconUpload, IconPaperclip,
 } from '@tabler/icons-react';
 import { incomingApi } from '@/lib/api';
+import { uploadAttachments } from '@/lib/uploads';
+import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
 
@@ -46,6 +48,9 @@ function EditIncomingInner() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const allowed = canEditCorrespondence(user?.roleName);
+  const [files, setFiles] = useState<File[]>([]);
+  const addFiles = (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]);
+  const removeFile = (index: number) => setFiles((prev) => prev.filter((_, i) => i !== index));
 
   const { data, isLoading } = useQuery({
     queryKey: ['incoming', id],
@@ -80,8 +85,8 @@ function EditIncomingInner() {
   const recipientOptions = recipientType === 'internal' ? INTERNAL_DEPARTMENTS : EXTERNAL_ENTITIES;
 
   const mutation = useMutation({
-    mutationFn: (form: FormData) =>
-      incomingApi.update(id, {
+    mutationFn: async (form: FormData) => {
+      const updated = await incomingApi.update(id, {
         receivedAt: new Date(form.receivedAt).toISOString(),
         senderEntityId: form.senderEntityId,
         senderRefNo: form.senderRefNo || undefined,
@@ -89,7 +94,14 @@ function EditIncomingInner() {
         priority: form.priority,
         recipientType: form.recipientType,
         recipientName: form.recipientName,
-      }),
+      });
+      // upload any newly added attachments
+      if (files.length) {
+        const failed = await uploadAttachments(id, files);
+        if (failed > 0) toast.warning(`تم الحفظ لكن فشل رفع ${failed} مرفق`);
+      }
+      return updated;
+    },
     onSuccess: () => {
       toast.success('تم حفظ التعديلات بنجاح');
       queryClient.invalidateQueries({ queryKey: ['incoming'] });
@@ -226,6 +238,22 @@ function EditIncomingInner() {
             </select>
             {errors.recipientName && <p className="text-xs text-red-600 mt-1">{errors.recipientName.message}</p>}
           </div>
+        </div>
+
+        {/* إضافة مستندات */}
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <IconUpload className="w-4 h-4 text-slate-400" /> إضافة مستندات
+            </h2>
+            {!!data?.attachments?.length && (
+              <span className="text-xs text-slate-500 inline-flex items-center gap-1">
+                <IconPaperclip className="w-3.5 h-3.5" /> مرفقات حالية: {data.attachments.length}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-400">يمكنك إضافة صور/ملفات جديدة (لن تُحذف المرفقات الحالية).</p>
+          <MultiFileUpload files={files} onAdd={addFiles} onRemove={removeFile} />
         </div>
 
         {/* Submit */}

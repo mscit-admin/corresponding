@@ -2,7 +2,7 @@
 
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { useRouter } from 'next/navigation';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,10 +10,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   IconArrowRight, IconInfoCircle, IconCheck, IconDeviceFloppy, IconX,
-  IconUpload, IconFile, IconTrash, IconScan, IconBuilding, IconUsers,
+  IconUpload, IconScan, IconBuilding, IconUsers,
 } from '@tabler/icons-react';
 import { incomingApi } from '@/lib/api';
-import axios from 'axios';
+import { uploadAttachments } from '@/lib/uploads';
+import { MultiFileUpload } from '@/components/MultiFileUpload';
 
 const schema = z.object({
   senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
@@ -54,11 +55,11 @@ const EXTERNAL_ENTITIES = [
 function NewIncomingInner() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [file, setFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const addFiles = (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]);
+  const removeFile = (index: number) => setFiles((prev) => prev.filter((_, i) => i !== index));
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isValid } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -86,28 +87,12 @@ function NewIncomingInner() {
         recipientName: data.recipientName,
       });
 
-      // Upload file if provided
-      if (file && created?.id) {
+      // Upload attachments if provided
+      if (files.length && created?.id) {
         setIsUploading(true);
         try {
-          const formData = new FormData();
-          formData.append('file', file);
-          const token = localStorage.getItem('gsdms-auth')
-            ? JSON.parse(localStorage.getItem('gsdms-auth')!).state?.token
-            : null;
-          await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/attachments/upload/incoming/${created.id}`,
-            formData,
-            {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-        } catch (e) {
-          console.error('Upload failed:', e);
-          toast.warning('تم تسجيل المراسلة لكن فشل رفع المرفق');
+          const failed = await uploadAttachments(created.id, files);
+          if (failed > 0) toast.warning(`تم تسجيل المراسلة لكن فشل رفع ${failed} مرفق`);
         } finally {
           setIsUploading(false);
         }
@@ -125,33 +110,6 @@ function NewIncomingInner() {
       toast.error(Array.isArray(msg) ? msg.join(', ') : msg);
     },
   });
-
-  const handleFileSelect = (selectedFile: File | null) => {
-    if (!selectedFile) return;
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-    if (!allowed.includes(selectedFile.type)) {
-      toast.error('نوع الملف غير مدعوم. المسموح: PDF, JPG, PNG');
-      return;
-    }
-    if (selectedFile.size > 20 * 1024 * 1024) {
-      toast.error('حجم الملف كبير جداً (الحد الأقصى 20 ميجا)');
-      return;
-    }
-    setFile(selectedFile);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    handleFileSelect(droppedFile);
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -174,7 +132,7 @@ function NewIncomingInner() {
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex gap-2 text-sm text-blue-800">
           <IconInfoCircle className="w-5 h-5 mt-0.5 shrink-0" />
           <div>
-            <strong>ملاحظة:</strong> يمكنك رفع صورة أو ملف PDF للمستند الأصلي (الحد الأقصى 20 ميجا).
+            <strong>ملاحظة:</strong> يمكنك رفع أكثر من صورة أو ملف PDF للمستند الأصلي (الحد الأقصى 20 ميجا لكل ملف).
           </div>
         </div>
 
@@ -288,42 +246,25 @@ function NewIncomingInner() {
           </div>
         </div>
 
-        {/* رفع المستند */}
+        {/* رفع المستندات */}
         <div className="card space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <IconUpload className="w-4 h-4 text-slate-400" /> المستند الأصلي
+              <IconUpload className="w-4 h-4 text-slate-400" /> المستندات الأصلية
             </h2>
-            <span className="text-xs text-slate-500">اختياري</span>
+            <span className="text-xs text-slate-500">اختياري · يمكن إضافة أكثر من ملف</span>
           </div>
 
-          {!file ? (
-            <div
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                isDragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 hover:border-brand-400 hover:bg-slate-50'
-              }`}
-            >
-              <IconUpload className="w-10 h-10 mx-auto text-slate-400 mb-2" />
-              <div className="text-sm font-medium text-slate-700">اسحب الملف هنا أو اضغط للاختيار</div>
-              <div className="text-xs text-slate-500 mt-1">PDF, JPG, PNG (حتى 20 ميجا)</div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
-              />
-
-              <div className="mt-3 pt-3 border-t border-slate-200 space-y-1.5">
+          <MultiFileUpload
+            files={files}
+            onAdd={addFiles}
+            onRemove={removeFile}
+            scannerSlot={
+              <div className="space-y-1.5">
                 <button
                   type="button"
                   disabled={scanning}
-                  onClick={async (e) => {
-                    e.stopPropagation();
+                  onClick={async () => {
                     const agent = process.env.NEXT_PUBLIC_SCANNER_AGENT_URL || 'http://localhost:8723';
                     try {
                       setScanning(true);
@@ -332,8 +273,8 @@ function NewIncomingInner() {
                       if (!res.ok) throw new Error('scan failed');
                       const blob = await res.blob();
                       const scanned = new File([blob], `scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
-                      handleFileSelect(scanned);
-                      toast.success('تم مسح المستند بنجاح');
+                      addFiles([scanned]);
+                      toast.success('تمت إضافة المستند الممسوح');
                     } catch {
                       toast.error('تعذّر الاتصال ببرنامج الماسحة. تأكد أن "GSDMS Scanner Agent" يعمل على جهازك.');
                     } finally {
@@ -343,32 +284,14 @@ function NewIncomingInner() {
                   className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50"
                 >
                   <IconScan className="w-3.5 h-3.5" />
-                  {scanning ? 'جارٍ المسح...' : 'مسح المستند عن طريق السكانر'}
+                  {scanning ? 'جارٍ المسح...' : 'مسح مستند عن طريق السكانر (يمكن تكراره)'}
                 </button>
                 <div className="text-[10px] text-slate-400 leading-relaxed">
-                  يتطلب تشغيل برنامج «GSDMS Scanner Agent» على جهازك. أو اسحب/اختر ملفاً ممسوحاً مسبقاً.
+                  يتطلب تشغيل برنامج «GSDMS Scanner Agent» على جهازك.
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="border border-slate-200 rounded-lg p-3 flex items-center gap-3 bg-slate-50">
-              <IconFile className="w-8 h-8 text-brand-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-slate-900 truncate">{file.name}</div>
-                <div className="text-xs text-slate-500">
-                  {formatBytes(file.size)} • {file.type.split('/')[1].toUpperCase()}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFile(null)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                title="إزالة"
-              >
-                <IconTrash className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+            }
+          />
         </div>
 
         {/* Submit */}
