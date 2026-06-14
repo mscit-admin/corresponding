@@ -53,6 +53,18 @@ export const incomingApi = {
     api.get<PaginatedResponse<IncomingCorrespondence>>('/correspondence/incoming', { params }).then((r) => r.data),
   getById: (id: string) =>
     api.get<IncomingCorrespondence>(`/correspondence/incoming/${id}`).then((r) => r.data),
+  update: (
+    id: string,
+    data: {
+      receivedAt?: string;
+      senderEntityId?: string;
+      subject?: string;
+      priority?: string;
+      senderRefNo?: string;
+      recipientType?: 'internal' | 'external';
+      recipientName?: string;
+    },
+  ) => api.patch<IncomingCorrespondence>(`/correspondence/incoming/${id}`, data).then((r) => r.data),
   create: (data: {
     receivedAt: string;
     senderEntityId: string;

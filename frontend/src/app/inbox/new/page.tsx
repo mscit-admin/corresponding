@@ -17,7 +17,10 @@ import axios from 'axios';
 
 const schema = z.object({
   senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
-  senderRefNo: z.string().optional(),
+  senderRefNo: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم المرسل يجب أن يكون أرقاماً فقط'),
   subject: z.string().min(3, 'الموضوع يجب أن يكون 3 أحرف على الأقل'),
   priority: z.enum(['normal', 'urgent', 'top_secret']),
   receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
@@ -57,8 +60,9 @@ function NewIncomingInner() {
   const [scanning, setScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isValid } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: 'onChange',
     defaultValues: {
       receivedAt: new Date().toISOString().slice(0, 16),
       priority: 'normal',
@@ -191,8 +195,19 @@ function NewIncomingInner() {
             </div>
 
             <div>
-              <label className="label">رقم المرسل (إن وُجد)</label>
-              <input type="text" className="input font-mono" placeholder="MOF-2026-XXXX" {...register('senderRefNo')} />
+              <label className="label">رقم المرسل (أرقام فقط)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="input font-mono"
+                placeholder="مثال: 12471"
+                {...register('senderRefNo')}
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  el.value = el.value.replace(/[^0-9]/g, '');
+                }}
+              />
+              {errors.senderRefNo && <p className="text-xs text-red-600 mt-1">{errors.senderRefNo.message}</p>}
             </div>
 
             <div>
@@ -359,14 +374,14 @@ function NewIncomingInner() {
         {/* Submit */}
         <div className="card flex justify-between items-center gap-2 flex-wrap">
           <div className="text-xs text-slate-500 flex items-center gap-1">
-            <IconDeviceFloppy className="w-4 h-4" /> 
-            {isUploading ? 'جارٍ رفع المرفق...' : 'سيتم الحفظ في قاعدة البيانات'}
+            <IconDeviceFloppy className="w-4 h-4" />
+            {isUploading ? 'جارٍ رفع المرفق...' : isValid ? 'جاهز للحفظ' : 'أكمِل الحقول المطلوبة (*) لتفعيل الحفظ'}
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => router.back()} className="btn text-sm">
               <IconX className="w-4 h-4" /> إلغاء
             </button>
-            <button type="submit" disabled={mutation.isPending} className="btn-primary text-sm">
+            <button type="submit" disabled={!isValid || mutation.isPending} className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed">
               <IconCheck className="w-4 h-4" />
               {mutation.isPending ? 'جارٍ التسجيل...' : 'تسجيل المراسلة'}
             </button>

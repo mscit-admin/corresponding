@@ -1,5 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+// Roles allowed to edit correspondence
+const EDIT_ROLES = ['super_admin', 'archive_mgr', 'diwan_officer'];
 
 // BigInt JSON serializer helper
 const serializeBigInt = (obj: any) => 
@@ -142,5 +145,40 @@ export class IncomingService {
 
   async findOne(id: any) {
     return this.findById(id);
+  }
+
+  async update(id: any, data: any, user: any) {
+    const roleName = user?.role?.name;
+    if (!EDIT_ROLES.includes(roleName)) {
+      throw new ForbiddenException('ليس لديك صلاحية تعديل المراسلات');
+    }
+
+    const idBig = typeof id === 'bigint' ? id : BigInt(id);
+    const existing = await this.prisma.incomingCorrespondence.findUnique({ where: { id: idBig } });
+    if (!existing) throw new NotFoundException('المراسلة غير موجودة');
+
+    const updateData: any = {};
+    if (data.receivedAt !== undefined) updateData.receivedAt = new Date(data.receivedAt);
+    if (data.senderEntityId !== undefined) updateData.senderEntityId = BigInt(data.senderEntityId);
+    if (data.senderRefNo !== undefined) updateData.senderRefNo = data.senderRefNo || null;
+    if (data.subject !== undefined) updateData.subject = data.subject;
+    if (data.priority !== undefined) updateData.priority = data.priority;
+    if (data.recipientType !== undefined) updateData.recipientType = data.recipientType || null;
+    if (data.recipientName !== undefined) updateData.recipientName = data.recipientName || null;
+
+    try {
+      const updated = await this.prisma.incomingCorrespondence.update({
+        where: { id: idBig },
+        data: updateData,
+        include: { senderEntity: true },
+      });
+      this.logger.log(`✓ Updated correspondence id: ${idBig} by ${user?.username}`);
+      return serializeBigInt(updated);
+    } catch (error) {
+      if (error.code === 'P2003') {
+        throw new BadRequestException('الجهة المرسلة غير موجودة في قاعدة البيانات');
+      }
+      throw new BadRequestException(`خطأ في تعديل المراسلة: ${error.message}`);
+    }
   }
 }

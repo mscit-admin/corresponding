@@ -7,17 +7,21 @@ import {
   IconArrowRight, IconFileText, IconBuilding, IconUser, IconCalendar,
   IconStar, IconAlertTriangle, IconCheck, IconClock, IconArrowDown,
   IconArrowBackUp, IconSend, IconPrinter, IconArchive, IconEye,
-  IconCircleCheck, IconSparkles,
+  IconCircleCheck, IconSparkles, IconPencil,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
 import { DocumentViewer } from '@/components/DocumentViewer';
+import { useAuthStore } from '@/store/auth';
+import { canEditCorrespondence } from '@/lib/permissions';
 import { formatDateAr, formatDateTimeAr, timeAgoAr, cn } from '@/lib/utils';
 
 function CorrespondenceDetailsPageInner() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { user } = useAuthStore();
+  const canEdit = canEditCorrespondence(user?.roleName);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['incoming', id],
@@ -121,7 +125,10 @@ function CorrespondenceDetailsPageInner() {
 
       {/* Actions */}
       <div className="card flex flex-wrap gap-2 justify-center">
-        <button className="btn-primary"><IconCircleCheck className="w-4 h-4" /> اعتماد</button>
+        {canEdit && (
+          <Link href={`/inbox/${id}/edit`} className="btn-primary"><IconPencil className="w-4 h-4" /> تعديل</Link>
+        )}
+        <button className="btn"><IconCircleCheck className="w-4 h-4" /> اعتماد</button>
         <button className="btn"><IconArrowBackUp className="w-4 h-4" /> رد</button>
         <button className="btn"><IconSend className="w-4 h-4" /> تحويل</button>
         <button className="btn"><IconPrinter className="w-4 h-4" /> طباعة</button>

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumberString } from 'class-validator';
+import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumberString, Matches } from 'class-validator';
 import { Priority } from '@prisma/client';
 
 export class CreateIncomingDto {
@@ -11,9 +11,9 @@ export class CreateIncomingDto {
   @IsNumberString()
   senderEntityId: string;
 
-  @ApiPropertyOptional({ description: 'رقم المرجع لدى المرسل', example: 'MOF-2026-1247' })
+  @ApiPropertyOptional({ description: 'رقم المرجع لدى المرسل (أرقام فقط)', example: '12471' })
   @IsOptional()
-  @IsString()
+  @Matches(/^[0-9]*$/, { message: 'رقم المرسل يجب أن يكون أرقاماً فقط' })
   senderRefNo?: string;
 
   @ApiPropertyOptional({ description: 'نوع الجهة المرسل إليها', enum: ['internal', 'external'] })

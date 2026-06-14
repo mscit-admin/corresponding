@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   roleId: bigint;
   departmentId: bigint;
+  role?: { name: string };
 }
 
 export const CurrentUser = createParamDecorator(

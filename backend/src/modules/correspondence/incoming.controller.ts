@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Request } from 'express';
 import { IncomingService } from './incoming.service';
 import { CreateIncomingDto } from './dto/create-incoming.dto';
+import { UpdateIncomingDto } from './dto/update-incoming.dto';
 import { QueryIncomingDto } from './dto/query-incoming.dto';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 
@@ -33,5 +34,15 @@ export class IncomingController {
   @ApiOperation({ summary: 'تفاصيل مراسلة واردة' })
   async findOne(@Param('id') id: string) {
     return this.incomingService.findById(BigInt(id));
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'تعديل مراسلة واردة (يتطلب صلاحية التعديل)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateIncomingDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.incomingService.update(BigInt(id), dto, user);
   }
 }
