@@ -85,6 +85,9 @@ export class IncomingService {
       where.OR = [
         { subject: { contains: search } },
         { serialNo: { contains: search } },
+        { senderRefNo: { contains: search } },
+        { recipientName: { contains: search } },
+        { senderEntity: { nameAr: { contains: search } } },
       ];
     }
     const [data, total] = await Promise.all([

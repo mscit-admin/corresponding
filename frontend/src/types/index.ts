@@ -59,6 +59,17 @@ export interface IncomingCorrespondence {
   category?: { id: string; name: string };
   currentOwner?: { id: string; fullName: string; username: string };
   creator?: { id: string; fullName: string; username: string };
+  attachmentCount?: number;
+  attachments?: Attachment[];
+}
+
+export interface Attachment {
+  id: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number | string;
+  uploadedAt?: string;
 }
 
 export interface PaginatedResponse<T> {

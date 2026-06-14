@@ -1,12 +1,12 @@
 'use client';
 
 import { AuthLayout } from '@/components/layout/AuthLayout';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   IconPlus, IconFilter, IconFileText, IconBuilding, IconUser, IconCalendar,
   IconAlertTriangle, IconInbox, IconEye, IconSend, IconPrinter, IconArchive,
-  IconArrowBackUp, IconCheck,
+  IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
@@ -30,10 +30,18 @@ const statusLabels: Record<string, { text: string; class: string }> = {
 
 function InboxPageInner() {
   const [filter, setFilter] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // debounce the search input so we don't query on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['incoming', { filter }],
-    queryFn: () => incomingApi.list({ take: 20, status: filter as any }),
+    queryKey: ['incoming', { filter, search: debouncedSearch }],
+    queryFn: () => incomingApi.list({ take: 50, status: filter as any, search: debouncedSearch || undefined }),
   });
 
   return (
@@ -46,6 +54,27 @@ function InboxPageInner() {
         <Link href="/inbox/new" className="btn-primary">
           <IconPlus className="w-4 h-4" /> تسجيل وارد جديد
         </Link>
+      </div>
+
+      {/* Search box */}
+      <div className="relative">
+        <IconSearch className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="ابحث بالموضوع، الرقم التسلسلي، الجهة المرسلة، أو المرسل إليها..."
+          className="input pr-10 pl-10"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            aria-label="مسح البحث"
+          >
+            <IconX className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -67,7 +96,18 @@ function InboxPageInner() {
         <div className="text-center py-10 text-slate-500">جارٍ تحميل المراسلات...</div>
       )}
 
-      {data && data.data.length === 0 && (
+      {data && data.data.length === 0 && debouncedSearch && (
+        <div className="card text-center py-16">
+          <IconSearch className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+          <h3 className="text-base font-medium text-slate-900">لا توجد نتائج</h3>
+          <p className="text-sm text-slate-500 mt-1">لم نجد مراسلات تطابق «{debouncedSearch}»</p>
+          <button onClick={() => setSearch('')} className="btn mt-4 inline-flex text-sm">
+            <IconX className="w-4 h-4" /> مسح البحث
+          </button>
+        </div>
+      )}
+
+      {data && data.data.length === 0 && !debouncedSearch && (
         <div className="card text-center py-16">
           <IconInbox className="w-12 h-12 mx-auto text-slate-300 mb-3" />
           <h3 className="text-base font-medium text-slate-900">لا توجد مراسلات</h3>
@@ -100,12 +140,17 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
           </span>
           {item.priority !== 'normal' && <span className={priority.class}>{priority.text}</span>}
           <span className={status.class}>{status.text}</span>
+          {!!item.attachmentCount && (
+            <span className="badge-secondary inline-flex items-center gap-1" title="يوجد مستند مرفق">
+              <IconPaperclip className="w-3 h-3" /> {item.attachmentCount}
+            </span>
+          )}
         </div>
         <span className="text-xs text-slate-400">{timeAgoAr(item.receivedAt)}</span>
       </div>
 
-      <Link href={`/inbox/${item.id}`} className="block hover:text-brand-700 transition-colors">
-        <h3 className="text-sm font-medium text-slate-900 mb-2 leading-relaxed">{item.subject}</h3>
+      <Link href={`/inbox/${item.id}`} className="block hover:text-brand-700 transition-colors" title="اضغط لعرض المراسلة والمستند">
+        <h3 className="text-sm font-medium text-slate-900 mb-2 leading-relaxed hover:underline">{item.subject}</h3>
       </Link>
 
       <div className="flex flex-col gap-1 text-xs text-slate-600 mb-3">

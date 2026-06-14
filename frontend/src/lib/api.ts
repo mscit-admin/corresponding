@@ -64,3 +64,9 @@ export const incomingApi = {
   }) =>
     api.post<IncomingCorrespondence>('/correspondence/incoming', data).then((r) => r.data),
 };
+
+export const attachmentsApi = {
+  // Fetch an attachment as a Blob (sends the JWT via the axios interceptor)
+  download: (id: string) =>
+    api.get(`/attachments/${id}/download`, { responseType: 'blob' }).then((r) => r.data as Blob),
+};
