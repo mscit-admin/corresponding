@@ -10,11 +10,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   IconArrowRight, IconInfoCircle, IconCheck, IconDeviceFloppy, IconX,
-  IconUpload, IconScan, IconBuilding, IconUsers,
+  IconUpload, IconBuilding, IconUsers,
 } from '@tabler/icons-react';
 import { incomingApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
+import { ScanButton } from '@/components/ScanButton';
 
 const schema = z.object({
   senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
@@ -57,7 +58,6 @@ function NewIncomingInner() {
   const queryClient = useQueryClient();
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const addFiles = (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]);
   const removeFile = (index: number) => setFiles((prev) => prev.filter((_, i) => i !== index));
 
@@ -259,38 +259,7 @@ function NewIncomingInner() {
             files={files}
             onAdd={addFiles}
             onRemove={removeFile}
-            scannerSlot={
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  disabled={scanning}
-                  onClick={async () => {
-                    const agent = process.env.NEXT_PUBLIC_SCANNER_AGENT_URL || 'http://localhost:8723';
-                    try {
-                      setScanning(true);
-                      toast.info('جارٍ المسح... تابع نافذة الماسحة على جهازك');
-                      const res = await fetch(`${agent}/scan`);
-                      if (!res.ok) throw new Error('scan failed');
-                      const blob = await res.blob();
-                      const scanned = new File([blob], `scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
-                      addFiles([scanned]);
-                      toast.success('تمت إضافة المستند الممسوح');
-                    } catch {
-                      toast.error('تعذّر الاتصال ببرنامج الماسحة. تأكد أن "GSDMS Scanner Agent" يعمل على جهازك.');
-                    } finally {
-                      setScanning(false);
-                    }
-                  }}
-                  className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50"
-                >
-                  <IconScan className="w-3.5 h-3.5" />
-                  {scanning ? 'جارٍ المسح...' : 'مسح مستند عن طريق السكانر (يمكن تكراره)'}
-                </button>
-                <div className="text-[10px] text-slate-400 leading-relaxed">
-                  يتطلب تشغيل برنامج «GSDMS Scanner Agent» على جهازك.
-                </div>
-              </div>
-            }
+            scannerSlot={<ScanButton onScanned={(f) => addFiles([f])} />}
           />
         </div>
 

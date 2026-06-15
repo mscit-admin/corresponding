@@ -14,6 +14,7 @@ import {
 import { incomingApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
+import { ScanButton } from '@/components/ScanButton';
 import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
@@ -259,7 +260,12 @@ function EditIncomingInner() {
             <IconUpload className="w-4 h-4 text-slate-400" /> إضافة مستندات جديدة
           </h2>
           <p className="text-[11px] text-slate-400">الملفات الجديدة تُضاف عند الحفظ (لن تُحذف المرفقات الحالية).</p>
-          <MultiFileUpload files={files} onAdd={addFiles} onRemove={removeFile} />
+          <MultiFileUpload
+            files={files}
+            onAdd={addFiles}
+            onRemove={removeFile}
+            scannerSlot={<ScanButton onScanned={(f) => addFiles([f])} />}
+          />
         </div>
 
         {/* Submit */}
