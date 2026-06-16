@@ -2,7 +2,8 @@
 // API Response Types
 // =========================
 
-export type Priority = 'normal' | 'urgent' | 'top_secret';
+export type Priority = 'normal' | 'urgent' | 'immediate' | 'top_secret';
+export type Confidentiality = 'normal' | 'secret' | 'top_secret';
 export type IncomingStatus = 'new' | 'in_progress' | 'responded' | 'closed' | 'archived';
 
 export interface AuthUser {
@@ -45,11 +46,14 @@ export interface ExternalEntity {
 export interface IncomingCorrespondence {
   id: string;
   serialNo: string;
+  registryNo?: string;
   receivedAt: string;
   senderRefNo?: string;
   originalDate?: string;
   subject: string;
+  transactionType?: string;
   priority: Priority;
+  confidentiality?: Confidentiality;
   status: IncomingStatus;
   recipientType?: 'internal' | 'external';
   recipientName?: string;

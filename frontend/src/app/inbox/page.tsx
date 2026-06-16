@@ -17,6 +17,7 @@ import type { IncomingCorrespondence } from '@/types';
 
 const priorityLabels: Record<string, { text: string; class: string }> = {
   urgent: { text: 'عاجل', class: 'badge-warning' },
+  immediate: { text: 'فوري', class: 'badge-warning' },
   top_secret: { text: 'سري', class: 'badge-danger' },
   normal: { text: 'عادي', class: 'badge-secondary' },
 };
@@ -136,8 +137,8 @@ function InboxPageInner() {
 }
 
 function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
-  const priority = priorityLabels[item.priority];
-  const status = statusLabels[item.status];
+  const priority = priorityLabels[item.priority] || priorityLabels.normal;
+  const status = statusLabels[item.status] || statusLabels.new;
 
   return (
     <div className="card hover:border-slate-300 transition-colors">

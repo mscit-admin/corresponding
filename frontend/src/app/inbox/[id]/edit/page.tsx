@@ -18,15 +18,20 @@ import { ScanButton } from '@/components/ScanButton';
 import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
+import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS, TRANSACTION_TYPES } from '@/lib/incoming-constants';
 
 const schema = z.object({
+  registryNo: z.string().optional(),
   senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
   senderRefNo: z
     .string()
     .optional()
     .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم المرسل يجب أن يكون أرقاماً فقط'),
+  originalDate: z.string().optional(),
   subject: z.string().min(3, 'الموضوع يجب أن يكون 3 أحرف على الأقل'),
-  priority: z.enum(['normal', 'urgent', 'top_secret']),
+  transactionType: z.string().optional(),
+  priority: z.enum(['normal', 'urgent', 'immediate']),
+  confidentiality: z.enum(['normal', 'secret', 'top_secret']),
   receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
   recipientType: z.enum(['internal', 'external']),
   recipientName: z.string().min(1, 'الجهة المرسل إليها مطلوبة'),
@@ -66,17 +71,21 @@ function EditIncomingInner() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onChange',
-    defaultValues: { priority: 'normal', recipientType: 'internal', senderEntityId: '1' },
+    defaultValues: { priority: 'normal', confidentiality: 'normal', recipientType: 'internal', senderEntityId: '1' },
   });
 
   // pre-fill once the correspondence is loaded
   useEffect(() => {
     if (!data) return;
     reset({
+      registryNo: data.registryNo || '',
       senderEntityId: data.senderEntity?.id?.toString() || '1',
       senderRefNo: data.senderRefNo || '',
+      originalDate: data.originalDate ? new Date(data.originalDate).toISOString().slice(0, 10) : '',
       subject: data.subject || '',
-      priority: (data.priority as any) || 'normal',
+      transactionType: data.transactionType || '',
+      priority: ((data.priority === 'top_secret' ? 'normal' : data.priority) as any) || 'normal',
+      confidentiality: (data.confidentiality as any) || 'normal',
       receivedAt: data.receivedAt ? new Date(data.receivedAt).toISOString().slice(0, 16) : '',
       recipientType: (data.recipientType as any) || 'internal',
       recipientName: data.recipientName || '',
@@ -90,10 +99,14 @@ function EditIncomingInner() {
     mutationFn: async (form: FormData) => {
       const updated = await incomingApi.update(id, {
         receivedAt: new Date(form.receivedAt).toISOString(),
+        registryNo: form.registryNo || '',
         senderEntityId: form.senderEntityId,
-        senderRefNo: form.senderRefNo || undefined,
+        senderRefNo: form.senderRefNo || '',
+        originalDate: form.originalDate || undefined,
         subject: form.subject,
+        transactionType: form.transactionType || '',
         priority: form.priority,
+        confidentiality: form.confidentiality,
         recipientType: form.recipientType,
         recipientName: form.recipientName,
       });
@@ -155,6 +168,11 @@ function EditIncomingInner() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label className="label">رقم القيد</label>
+              <input type="text" className="input font-mono" placeholder="مثال: 2026/145" {...register('registryNo')} />
+            </div>
+
+            <div>
               <label className="label">الجهة المرسلة <span className="text-red-500">*</span></label>
               <select className="input" {...register('senderEntityId')}>
                 <option value="1">وزارة المالية</option>
@@ -186,11 +204,29 @@ function EditIncomingInner() {
             </div>
 
             <div>
-              <label className="label">الأهمية <span className="text-red-500">*</span></label>
+              <label className="label">تاريخ المستند</label>
+              <input type="date" className="input" {...register('originalDate')} />
+            </div>
+
+            <div>
+              <label className="label">نوع المعاملة</label>
+              <select className="input" {...register('transactionType')}>
+                <option value="">-- اختر --</option>
+                {TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">درجة الأهمية <span className="text-red-500">*</span></label>
               <select className="input" {...register('priority')}>
-                <option value="normal">عادي</option>
-                <option value="urgent">عاجل</option>
-                <option value="top_secret">سري</option>
+                {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">درجة السرية <span className="text-red-500">*</span></label>
+              <select className="input" {...register('confidentiality')}>
+                {CONFIDENTIALITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
 

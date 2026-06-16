@@ -1,11 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumberString, Matches } from 'class-validator';
-import { Priority } from '@prisma/client';
+import { Priority, Confidentiality } from '@prisma/client';
 
 export class CreateIncomingDto {
   @ApiProperty({ description: 'تاريخ ووقت الاستلام', example: '2026-05-18T10:23:00Z' })
   @IsDateString()
   receivedAt: string;
+
+  @ApiPropertyOptional({ description: 'رقم القيد', example: '2026/145' })
+  @IsOptional()
+  @IsString()
+  registryNo?: string;
 
   @ApiProperty({ description: 'معرف الجهة المرسلة', example: '12' })
   @IsNumberString()
@@ -36,10 +41,20 @@ export class CreateIncomingDto {
   @IsNotEmpty()
   subject: string;
 
-  @ApiPropertyOptional({ enum: Priority, default: Priority.normal })
+  @ApiPropertyOptional({ description: 'نوع المعاملة', example: 'كتاب رسمي' })
+  @IsOptional()
+  @IsString()
+  transactionType?: string;
+
+  @ApiPropertyOptional({ enum: Priority, default: Priority.normal, description: 'درجة الأهمية' })
   @IsOptional()
   @IsEnum(Priority)
   priority?: Priority = Priority.normal;
+
+  @ApiPropertyOptional({ enum: Confidentiality, default: Confidentiality.normal, description: 'درجة السرية' })
+  @IsOptional()
+  @IsEnum(Confidentiality)
+  confidentiality?: Confidentiality = Confidentiality.normal;
 
   @ApiPropertyOptional({ description: 'معرف التصنيف' })
   @IsOptional()

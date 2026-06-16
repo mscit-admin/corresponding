@@ -40,11 +40,15 @@ export class IncomingService {
       // Build create data with recipient fields
       const createData: any = {
         serialNo,
+        registryNo: data.registryNo || null,
         receivedAt: new Date(data.receivedAt),
         senderEntityId: senderEntityIdBig,
         senderRefNo: data.senderRefNo || null,
+        originalDate: data.originalDate ? new Date(data.originalDate) : null,
         subject: data.subject,
+        transactionType: data.transactionType || null,
         priority: data.priority || 'normal',
+        confidentiality: data.confidentiality || 'normal',
         status: 'new',
         createdBy: userIdBig,
         currentOwnerId: userIdBig,
@@ -159,10 +163,14 @@ export class IncomingService {
 
     const updateData: any = {};
     if (data.receivedAt !== undefined) updateData.receivedAt = new Date(data.receivedAt);
+    if (data.registryNo !== undefined) updateData.registryNo = data.registryNo || null;
     if (data.senderEntityId !== undefined) updateData.senderEntityId = BigInt(data.senderEntityId);
     if (data.senderRefNo !== undefined) updateData.senderRefNo = data.senderRefNo || null;
+    if (data.originalDate !== undefined) updateData.originalDate = data.originalDate ? new Date(data.originalDate) : null;
     if (data.subject !== undefined) updateData.subject = data.subject;
+    if (data.transactionType !== undefined) updateData.transactionType = data.transactionType || null;
     if (data.priority !== undefined) updateData.priority = data.priority;
+    if (data.confidentiality !== undefined) updateData.confidentiality = data.confidentiality;
     if (data.recipientType !== undefined) updateData.recipientType = data.recipientType || null;
     if (data.recipientName !== undefined) updateData.recipientName = data.recipientName || null;
     if (data.status !== undefined) updateData.status = data.status;

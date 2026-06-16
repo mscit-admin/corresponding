@@ -16,15 +16,20 @@ import { incomingApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
+import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS, TRANSACTION_TYPES } from '@/lib/incoming-constants';
 
 const schema = z.object({
+  registryNo: z.string().optional(),
   senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
   senderRefNo: z
     .string()
     .optional()
     .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم المرسل يجب أن يكون أرقاماً فقط'),
+  originalDate: z.string().optional(),
   subject: z.string().min(3, 'الموضوع يجب أن يكون 3 أحرف على الأقل'),
-  priority: z.enum(['normal', 'urgent', 'top_secret']),
+  transactionType: z.string().optional(),
+  priority: z.enum(['normal', 'urgent', 'immediate']),
+  confidentiality: z.enum(['normal', 'secret', 'top_secret']),
   receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
   recipientType: z.enum(['internal', 'external']),
   recipientName: z.string().min(1, 'الجهة المرسل إليها مطلوبة'),
@@ -67,6 +72,7 @@ function NewIncomingInner() {
     defaultValues: {
       receivedAt: new Date().toISOString().slice(0, 16),
       priority: 'normal',
+      confidentiality: 'normal',
       senderEntityId: '1',
       recipientType: 'internal',
     },
@@ -79,10 +85,14 @@ function NewIncomingInner() {
     mutationFn: async (data: FormData) => {
       const created = await incomingApi.create({
         receivedAt: new Date(data.receivedAt).toISOString(),
+        registryNo: data.registryNo || undefined,
         senderEntityId: data.senderEntityId,
         senderRefNo: data.senderRefNo,
+        originalDate: data.originalDate || undefined,
         subject: data.subject,
+        transactionType: data.transactionType || undefined,
         priority: data.priority,
+        confidentiality: data.confidentiality,
         recipientType: data.recipientType,
         recipientName: data.recipientName,
       });
@@ -144,6 +154,11 @@ function NewIncomingInner() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label className="label">رقم القيد</label>
+              <input type="text" className="input font-mono" placeholder="مثال: 2026/145" {...register('registryNo')} />
+            </div>
+
+            <div>
               <label className="label">الجهة المرسلة <span className="text-red-500">*</span></label>
               <select className="input" {...register('senderEntityId')}>
                 <option value="1">وزارة المالية</option>
@@ -175,11 +190,29 @@ function NewIncomingInner() {
             </div>
 
             <div>
-              <label className="label">الأهمية <span className="text-red-500">*</span></label>
+              <label className="label">تاريخ المستند</label>
+              <input type="date" className="input" {...register('originalDate')} />
+            </div>
+
+            <div>
+              <label className="label">نوع المعاملة</label>
+              <select className="input" {...register('transactionType')}>
+                <option value="">-- اختر --</option>
+                {TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">درجة الأهمية <span className="text-red-500">*</span></label>
               <select className="input" {...register('priority')}>
-                <option value="normal">عادي</option>
-                <option value="urgent">عاجل</option>
-                <option value="top_secret">سري</option>
+                {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">درجة السرية <span className="text-red-500">*</span></label>
+              <select className="input" {...register('confidentiality')}>
+                {CONFIDENTIALITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
 

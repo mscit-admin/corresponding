@@ -14,6 +14,7 @@ import { incomingApi } from '@/lib/api';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
+import { priorityLabel, confidentialityLabel, statusLabel } from '@/lib/incoming-constants';
 import { formatDateAr, formatDateTimeAr, timeAgoAr, cn } from '@/lib/utils';
 
 function CorrespondenceDetailsPageInner() {
@@ -44,11 +45,12 @@ function CorrespondenceDetailsPageInner() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-500 font-mono">{data.serialNo}</span>
             {data.priority !== 'normal' && (
-              <span className={data.priority === 'urgent' ? 'badge-warning' : 'badge-danger'}>
-                {data.priority === 'urgent' ? 'عاجل' : 'سري'}
-              </span>
+              <span className="badge-warning">{priorityLabel(data.priority)}</span>
             )}
-            <span className="badge-info">{data.status === 'new' ? 'جديدة' : data.status}</span>
+            {data.confidentiality && data.confidentiality !== 'normal' && (
+              <span className="badge-danger">{confidentialityLabel(data.confidentiality)}</span>
+            )}
+            <span className="badge-info">{statusLabel(data.status)}</span>
           </div>
           <button aria-label="مميزة"><IconStar className="w-5 h-5 text-amber-500" /></button>
         </div>
@@ -56,6 +58,8 @@ function CorrespondenceDetailsPageInner() {
         <h1 className="text-lg font-medium text-slate-900 mb-3 leading-relaxed">{data.subject}</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs p-3 bg-slate-50 rounded-md">
+          <div><span className="text-slate-500">رقم المعاملة:</span> <span className="font-mono font-medium">{data.serialNo}</span></div>
+          {data.registryNo && <div><span className="text-slate-500">رقم القيد:</span> <span className="font-mono font-medium">{data.registryNo}</span></div>}
           <div><span className="text-slate-500">الجهة المرسلة:</span> <span className="font-medium">{data.senderEntity?.nameAr}</span></div>
           {data.recipientName && (
             <div>
@@ -67,7 +71,11 @@ function CorrespondenceDetailsPageInner() {
             </div>
           )}
           {data.senderRefNo && <div><span className="text-slate-500">رقم المرسل:</span> <span className="font-mono">{data.senderRefNo}</span></div>}
+          {data.transactionType && <div><span className="text-slate-500">نوع المعاملة:</span> <span className="font-medium">{data.transactionType}</span></div>}
           <div><span className="text-slate-500">تاريخ ورودها:</span> <span>{formatDateTimeAr(data.receivedAt)}</span></div>
+          {data.originalDate && <div><span className="text-slate-500">تاريخ المستند:</span> <span>{formatDateAr(data.originalDate)}</span></div>}
+          <div><span className="text-slate-500">درجة الأهمية:</span> <span className="font-medium">{priorityLabel(data.priority)}</span></div>
+          <div><span className="text-slate-500">درجة السرية:</span> <span className="font-medium">{confidentialityLabel(data.confidentiality)}</span></div>
           {data.dueDate && <div><span className="text-slate-500">المهلة:</span> <span className="text-amber-700 font-medium">{formatDateAr(data.dueDate)}</span></div>}
           {data.currentOwner && <div><span className="text-slate-500">المالك الحالي:</span> <span className="font-medium">{data.currentOwner.fullName}</span></div>}
         </div>

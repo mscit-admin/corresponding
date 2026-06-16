@@ -60,7 +60,11 @@ export const incomingApi = {
       senderEntityId?: string;
       subject?: string;
       priority?: string;
+      confidentiality?: string;
       senderRefNo?: string;
+      registryNo?: string;
+      originalDate?: string;
+      transactionType?: string;
       recipientType?: 'internal' | 'external';
       recipientName?: string;
       status?: string;
@@ -72,7 +76,11 @@ export const incomingApi = {
     senderEntityId: string;
     subject: string;
     priority?: string;
+    confidentiality?: string;
     senderRefNo?: string;
+    registryNo?: string;
+    originalDate?: string;
+    transactionType?: string;
     recipientType?: 'internal' | 'external';
     recipientName?: string;
   }) =>

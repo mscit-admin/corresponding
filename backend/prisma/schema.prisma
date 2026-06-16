@@ -141,6 +141,13 @@ enum EntityType {
 enum Priority {
   normal
   urgent
+  immediate
+  top_secret
+}
+
+enum Confidentiality {
+  normal
+  secret
   top_secret
 }
 
@@ -218,6 +225,7 @@ model Category {
 model IncomingCorrespondence {
   id                BigInt         @id @default(autoincrement())
   serialNo          String         @unique @map("serial_no") @db.VarChar(50)
+  registryNo        String?        @map("registry_no") @db.VarChar(50)
   receivedAt        DateTime       @map("received_at")
   senderEntityId   BigInt         @map("sender_entity_id")
   senderRefNo       String?        @map("sender_ref_no") @db.VarChar(100)
@@ -225,7 +233,9 @@ model IncomingCorrespondence {
   recipientName     String?        @map("recipient_name") @db.VarChar(255)
   originalDate      DateTime?      @map("original_date") @db.Date
   subject           String         @db.Text
+  transactionType   String?        @map("transaction_type") @db.VarChar(100)
   priority          Priority       @default(normal)
+  confidentiality   Confidentiality @default(normal)
   categoryId        BigInt?        @map("category_id")
   currentOwnerId    BigInt?        @map("current_owner_id")
   status            IncomingStatus @default(new)
