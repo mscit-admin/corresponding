@@ -11,10 +11,11 @@ import { toast } from 'sonner';
 import {
   IconArrowRight, IconInfoCircle, IconCheck, IconX, IconUsers, IconBuilding, IconLock, IconUpload, IconPaperclip,
 } from '@tabler/icons-react';
-import { incomingApi } from '@/lib/api';
+import { incomingApi, referenceApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
+import { ManagedSelect } from '@/components/ManagedSelect';
 import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
@@ -38,15 +39,6 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
-
-const INTERNAL_DEPARTMENTS = [
-  'مكتب الوزير', 'مكتب الوكيل', 'إدارة الموارد البشرية', 'الإدارة المالية',
-  'إدارة الشؤون القانونية', 'إدارة تقنية المعلومات', 'الديوان العام',
-];
-const EXTERNAL_ENTITIES = [
-  'وزارة المالية', 'وزارة العدل', 'وزارة الداخلية', 'ديوان رئاسة الوزراء',
-  'مصرف ليبيا المركزي', 'ديوان المحاسبة', 'هيئة الرقابة الإدارية',
-];
 
 function EditIncomingInner() {
   const router = useRouter();
@@ -93,7 +85,6 @@ function EditIncomingInner() {
   }, [data, reset]);
 
   const recipientType = watch('recipientType');
-  const recipientOptions = recipientType === 'internal' ? INTERNAL_DEPARTMENTS : EXTERNAL_ENTITIES;
 
   const mutation = useMutation({
     mutationFn: async (form: FormData) => {
@@ -174,10 +165,18 @@ function EditIncomingInner() {
 
             <div>
               <label className="label">الجهة المرسلة <span className="text-red-500">*</span></label>
-              <select className="input" {...register('senderEntityId')}>
-                <option value="1">وزارة المالية</option>
-                <option value="2">ديوان رئاسة الوزراء</option>
-              </select>
+              <ManagedSelect
+                value={watch('senderEntityId') || ''}
+                onChange={(v) => setValue('senderEntityId', v, { shouldValidate: true })}
+                queryKey={['entities']}
+                fetcher={referenceApi.entities}
+                creator={allowed ? referenceApi.createEntity : undefined}
+                getValue={(e) => e.id}
+                getLabel={(e) => e.nameAr}
+                placeholder="-- اختر الجهة المرسِلة --"
+                canCreate={allowed}
+                createLabel="إضافة جهة جديدة"
+              />
               {errors.senderEntityId && <p className="text-xs text-red-600 mt-1">{errors.senderEntityId.message}</p>}
             </div>
 
@@ -270,10 +269,33 @@ function EditIncomingInner() {
             <label className="label">
               {recipientType === 'internal' ? 'الإدارة المستلمة' : 'الجهة الخارجية'} <span className="text-red-500">*</span>
             </label>
-            <select className="input" {...register('recipientName')}>
-              <option value="">-- اختر --</option>
-              {recipientOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
+            {recipientType === 'internal' ? (
+              <ManagedSelect
+                value={watch('recipientName') || ''}
+                onChange={(v) => setValue('recipientName', v, { shouldValidate: true })}
+                queryKey={['departments']}
+                fetcher={referenceApi.departments}
+                creator={allowed ? referenceApi.createDepartment : undefined}
+                getValue={(d) => d.name}
+                getLabel={(d) => d.name}
+                placeholder="-- اختر الإدارة المستلمة --"
+                canCreate={allowed}
+                createLabel="إضافة إدارة جديدة"
+              />
+            ) : (
+              <ManagedSelect
+                value={watch('recipientName') || ''}
+                onChange={(v) => setValue('recipientName', v, { shouldValidate: true })}
+                queryKey={['entities']}
+                fetcher={referenceApi.entities}
+                creator={allowed ? referenceApi.createEntity : undefined}
+                getValue={(e) => e.nameAr}
+                getLabel={(e) => e.nameAr}
+                placeholder="-- اختر الجهة الخارجية --"
+                canCreate={allowed}
+                createLabel="إضافة جهة جديدة"
+              />
+            )}
             {errors.recipientName && <p className="text-xs text-red-600 mt-1">{errors.recipientName.message}</p>}
           </div>
         </div>

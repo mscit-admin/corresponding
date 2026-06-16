@@ -82,6 +82,26 @@ async function main() {
       update: {},
       create: { name: 'الديوان', code: 'MOA-DIW', parentId: ministry.id, level: 2 },
     }),
+    prisma.department.upsert({
+      where: { code: 'MOA-MIN' },
+      update: {},
+      create: { name: 'مكتب الوزير', code: 'MOA-MIN', parentId: ministry.id, level: 2 },
+    }),
+    prisma.department.upsert({
+      where: { code: 'MOA-DEP' },
+      update: {},
+      create: { name: 'مكتب الوكيل', code: 'MOA-DEP', parentId: ministry.id, level: 2 },
+    }),
+    prisma.department.upsert({
+      where: { code: 'MOA-LEG' },
+      update: {},
+      create: { name: 'إدارة الشؤون القانونية', code: 'MOA-LEG', parentId: ministry.id, level: 2 },
+    }),
+    prisma.department.upsert({
+      where: { code: 'MOA-IT' },
+      update: {},
+      create: { name: 'إدارة تقنية المعلومات', code: 'MOA-IT', parentId: ministry.id, level: 2 },
+    }),
   ]);
   console.log(`  ✓ ${departments.length + 1} departments created`);
 
@@ -133,29 +153,26 @@ async function main() {
   console.log(`  ✓ Sample employee created (username: ahmed.mohamed, password: Admin@1234)`);
 
   // ----- EXTERNAL ENTITIES -----
-  await Promise.all([
-    prisma.externalEntity.upsert({
-      where: { id: BigInt(1) },
-      update: {},
-      create: {
-        id: BigInt(1),
-        name: 'Ministry of Finance',
-        nameAr: 'وزارة المالية',
-        type: EntityType.government,
-      },
-    }),
-    prisma.externalEntity.upsert({
-      where: { id: BigInt(2) },
-      update: {},
-      create: {
-        id: BigInt(2),
-        name: 'Prime Minister Office',
-        nameAr: 'ديوان رئاسة الوزراء',
-        type: EntityType.government,
-      },
-    }),
-  ]);
-  console.log('  ✓ External entities seeded');
+  const entityList = [
+    { id: 1, name: 'Ministry of Finance', nameAr: 'وزارة المالية' },
+    { id: 2, name: 'Prime Minister Office', nameAr: 'ديوان رئاسة الوزراء' },
+    { id: 3, name: 'Ministry of Justice', nameAr: 'وزارة العدل' },
+    { id: 4, name: 'Ministry of Interior', nameAr: 'وزارة الداخلية' },
+    { id: 5, name: 'Ministry of Foreign Affairs', nameAr: 'وزارة الخارجية' },
+    { id: 6, name: 'Ministry of Planning', nameAr: 'وزارة التخطيط' },
+    { id: 7, name: 'Central Bank of Libya', nameAr: 'مصرف ليبيا المركزي' },
+    { id: 8, name: 'Audit Bureau', nameAr: 'ديوان المحاسبة' },
+    { id: 9, name: 'Administrative Control Authority', nameAr: 'هيئة الرقابة الإدارية' },
+    { id: 10, name: 'Ministry of Health', nameAr: 'وزارة الصحة' },
+  ];
+  for (const e of entityList) {
+    await prisma.externalEntity.upsert({
+      where: { id: BigInt(e.id) },
+      update: { name: e.name, nameAr: e.nameAr },
+      create: { id: BigInt(e.id), name: e.name, nameAr: e.nameAr, type: EntityType.government },
+    });
+  }
+  console.log(`  ✓ ${entityList.length} external entities seeded`);
 
   console.log('✅ Seed complete');
 }

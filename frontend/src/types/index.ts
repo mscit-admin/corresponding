@@ -43,6 +43,12 @@ export interface ExternalEntity {
   type: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export interface IncomingCorrespondence {
   id: string;
   serialNo: string;

@@ -35,7 +35,7 @@ api.interceptors.response.use(
 // API Endpoints
 // =========================
 
-import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse } from '@/types';
+import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department } from '@/types';
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -85,6 +85,13 @@ export const incomingApi = {
     recipientName?: string;
   }) =>
     api.post<IncomingCorrespondence>('/correspondence/incoming', data).then((r) => r.data),
+};
+
+export const referenceApi = {
+  entities: () => api.get<ExternalEntity[]>('/entities').then((r) => r.data),
+  createEntity: (nameAr: string) => api.post<ExternalEntity>('/entities', { nameAr }).then((r) => r.data),
+  departments: () => api.get<Department[]>('/departments').then((r) => r.data),
+  createDepartment: (name: string) => api.post<Department>('/departments', { name }).then((r) => r.data),
 };
 
 export const attachmentsApi = {
