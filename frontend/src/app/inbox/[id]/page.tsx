@@ -123,7 +123,7 @@ function CorrespondenceDetailsPageInner() {
       </div>
 
       {/* Document Preview */}
-      <DocumentViewer attachments={data.attachments} />
+      <DocumentViewer attachments={data.attachments} showViewLog={user?.roleName === 'super_admin'} />
 
       {/* Timeline */}
       <div className="card">

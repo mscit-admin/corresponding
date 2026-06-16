@@ -108,6 +108,15 @@ export interface Attachment {
   uploadedAt?: string;
 }
 
+export interface AttachmentView {
+  userId: string;
+  fullName: string;
+  department?: string | null;
+  firstViewedAt: string;
+  lastViewedAt: string;
+  viewCount: number;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

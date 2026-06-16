@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import {
-  IconFileText, IconDownload, IconExternalLink, IconPhoto, IconLoader2, IconAlertTriangle,
+  IconFileText, IconDownload, IconExternalLink, IconPhoto, IconLoader2, IconAlertTriangle, IconEye,
 } from '@tabler/icons-react';
 import { attachmentsApi } from '@/lib/api';
-import type { Attachment } from '@/types';
+import { formatDateTimeAr } from '@/lib/utils';
+import type { Attachment, AttachmentView } from '@/types';
 
 function formatBytes(bytes: number) {
   if (!bytes || bytes < 1024) return `${bytes || 0} B`;
@@ -17,13 +18,34 @@ function formatBytes(bytes: number) {
  * يعرض المستند الأصلي المرفق (PDF أو صورة) مباشرة داخل الصفحة.
  * يجلب الملف مع رمز المصادقة ثم يعرضه عبر Blob URL.
  */
-export function DocumentViewer({ attachments }: { attachments?: Attachment[] }) {
+export function DocumentViewer({
+  attachments,
+  showViewLog = false,
+}: {
+  attachments?: Attachment[];
+  /** عرض سجلّ "من فتح هذا المستند" — للأدمن الرئيسي فقط */
+  showViewLog?: boolean;
+}) {
   const [active, setActive] = useState(0);
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [views, setViews] = useState<AttachmentView[]>([]);
+  const [viewsLoading, setViewsLoading] = useState(false);
 
   const current = attachments?.[active];
+
+  // جلب سجلّ الفتح للمرفق النشط عند فتح اللوحة (للأدمن الرئيسي فقط)
+  useEffect(() => {
+    if (!showViewLog || !showLog || !current) return;
+    setViewsLoading(true);
+    attachmentsApi
+      .views(current.id)
+      .then(setViews)
+      .catch(() => setViews([]))
+      .finally(() => setViewsLoading(false));
+  }, [showViewLog, showLog, current?.id]);
 
   useEffect(() => {
     if (!current) return;
@@ -73,6 +95,16 @@ export function DocumentViewer({ attachments }: { attachments?: Attachment[] }) 
           ) : null}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {showViewLog && (
+            <button
+              type="button"
+              onClick={() => setShowLog((o) => !o)}
+              className={`btn text-xs py-1 ${showLog ? 'bg-brand-100 text-brand-700' : ''}`}
+              title="سجلّ من فتح هذا المستند"
+            >
+              <IconEye className="w-3.5 h-3.5" /> سجل الفتح
+            </button>
+          )}
           {url && (
             <>
               <a href={url} target="_blank" rel="noopener noreferrer" className="btn text-xs py-1" title="فتح في تبويب جديد">
@@ -136,6 +168,43 @@ export function DocumentViewer({ attachments }: { attachments?: Attachment[] }) 
           )
         )}
       </div>
+
+      {/* سجلّ من فتح هذا المستند (للأدمن الرئيسي فقط) */}
+      {showViewLog && showLog && (
+        <div className="border-t border-slate-200 p-3 bg-white">
+          <div className="text-xs font-medium mb-2 flex items-center gap-2">
+            <IconEye className="w-4 h-4 text-slate-400" /> من فتح هذا المستند
+            {views.length ? <span className="text-slate-400 font-normal">({views.length})</span> : null}
+          </div>
+          {viewsLoading ? (
+            <div className="text-xs text-slate-400 flex items-center gap-2">
+              <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> جارٍ التحميل...
+            </div>
+          ) : !views.length ? (
+            <p className="text-xs text-slate-400">لم يفتح أحد هذا المستند بعد.</p>
+          ) : (
+            <div className="space-y-2">
+              {views.map((v) => (
+                <div key={v.userId} className="flex items-center justify-between text-xs border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-semibold">
+                      {v.fullName?.slice(0, 2)}
+                    </span>
+                    <div>
+                      <div className="font-medium text-slate-800">{v.fullName}</div>
+                      {v.department && <div className="text-[10px] text-slate-400">{v.department}</div>}
+                    </div>
+                  </div>
+                  <div className="text-left text-slate-400">
+                    <div>{formatDateTimeAr(v.lastViewedAt)}</div>
+                    {v.viewCount > 1 && <div className="text-[10px]">{v.viewCount} مرّات</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

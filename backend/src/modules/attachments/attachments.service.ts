@@ -71,6 +71,53 @@ export class AttachmentsService {
     return serializeBigInt(rows[0]);
   }
 
+  /**
+   * يسجّل فتح/مشاهدة مرفق من قِبل مستخدم (بما فيهم المُدخِل).
+   * يُستدعى عند تحميل/عرض المستند. لا يُفشل الطلب لو فشل التسجيل.
+   */
+  async recordView(attachmentId: string, userId: any) {
+    if (!userId) return;
+    try {
+      const attachmentIdBig = BigInt(attachmentId);
+      const userIdBig = BigInt(userId);
+      await this.prisma.attachmentView.upsert({
+        where: { attachmentId_userId: { attachmentId: attachmentIdBig, userId: userIdBig } },
+        update: { lastViewedAt: new Date(), viewCount: { increment: 1 } },
+        create: { attachmentId: attachmentIdBig, userId: userIdBig },
+      });
+    } catch (e) {
+      this.logger.warn(`Could not record attachment view: ${e.message}`);
+    }
+  }
+
+  /**
+   * سجلّ "من فتح هذا المستند ومتى" — للمراقبة (الأدمن الرئيسي فقط).
+   */
+  async getViews(attachmentId: string) {
+    const views = await this.prisma.attachmentView.findMany({
+      where: { attachmentId: BigInt(attachmentId) },
+      orderBy: { lastViewedAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            fullNameAr: true,
+            department: { select: { name: true } },
+          },
+        },
+      },
+    });
+    return views.map((v) => ({
+      userId: v.userId.toString(),
+      fullName: v.user.fullNameAr || v.user.fullName,
+      department: v.user.department?.name || null,
+      firstViewedAt: v.firstViewedAt,
+      lastViewedAt: v.lastViewedAt,
+      viewCount: v.viewCount,
+    }));
+  }
+
   async remove(id: string): Promise<boolean> {
     const attachment = await this.findById(id);
     if (!attachment) return false;

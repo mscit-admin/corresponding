@@ -73,17 +73,31 @@ export class AttachmentsController {
   }
 
   @Get(':id/download')
-  @ApiOperation({ summary: 'تحميل مرفق' })
-  async download(@Param('id') id: string, @Res() res: Response) {
+  @ApiOperation({ summary: 'تحميل/عرض مرفق (يسجّل المشاهدة)' })
+  async download(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
     const attachment = await this.service.findById(id);
     if (!attachment) throw new NotFoundException('المرفق غير موجود');
-    
+
     const filePath = join(UPLOADS_DIR, attachment.fileName);
     if (!existsSync(filePath)) throw new NotFoundException('الملف غير موجود على الخادم');
-    
+
+    // سجّل فتح المستند لكل من يفتحه (بما فيهم المُدخِل)
+    const userId = req.user?.id || req.user?.sub || req.user?.userId;
+    await this.service.recordView(id, userId);
+
     res.setHeader('Content-Type', attachment.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.originalName)}"`);
     return res.sendFile(filePath);
+  }
+
+  @Get(':id/views')
+  @ApiOperation({ summary: 'سجلّ من فتح المستند ومتى (للأدمن الرئيسي فقط)' })
+  async views(@Param('id') id: string, @Req() req: any) {
+    const roleName = req.user?.role?.name;
+    if (roleName !== 'super_admin') {
+      throw new ForbiddenException('سجلّ مشاهدة المستندات متاح للأدمن الرئيسي فقط');
+    }
+    return this.service.getViews(id);
   }
 
   @Delete(':id')

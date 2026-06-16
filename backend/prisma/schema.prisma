@@ -107,6 +107,7 @@ model User {
   incomingCreated       IncomingCorrespondence[]  @relation("IncomingCreatedBy")
   incomingOwned         IncomingCorrespondence[]  @relation("IncomingOwner")
   incomingViews         IncomingView[]            @relation("IncomingViewUser")
+  attachmentViews       AttachmentView[]          @relation("AttachmentViewUser")
   incomingRoutings      IncomingRouting[]         @relation("IncomingRoutedBy")
   outgoingCreated       OutgoingCorrespondence[]  @relation("OutgoingCreatedBy")
   outgoingApproved      OutgoingCorrespondence[]  @relation("OutgoingApprovedBy")
@@ -362,11 +363,28 @@ model Attachment {
   uploadedBy          BigInt             @map("uploaded_by")
   uploadedAt          DateTime           @default(now()) @map("uploaded_at")
 
-  uploader User @relation(fields: [uploadedBy], references: [id])
+  uploader User             @relation(fields: [uploadedBy], references: [id])
+  views    AttachmentView[]
 
   @@index([correspondenceType, correspondenceId])
   @@index([ocrStatus])
   @@map("attachments")
+}
+
+model AttachmentView {
+  id            BigInt   @id @default(autoincrement())
+  attachmentId  BigInt   @map("attachment_id")
+  userId        BigInt   @map("user_id")
+  firstViewedAt DateTime @default(now()) @map("first_viewed_at")
+  lastViewedAt  DateTime @default(now()) @updatedAt @map("last_viewed_at")
+  viewCount     Int      @default(1) @map("view_count")
+
+  attachment Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  user       User       @relation("AttachmentViewUser", fields: [userId], references: [id])
+
+  @@unique([attachmentId, userId])
+  @@index([attachmentId])
+  @@map("attachment_views")
 }
 
 // =====================================================================
