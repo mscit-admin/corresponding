@@ -20,23 +20,32 @@ import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
 import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS, TRANSACTION_TYPES } from '@/lib/incoming-constants';
+import { VisibilitySelector } from '@/components/VisibilitySelector';
 
-const schema = z.object({
-  registryNo: z.string().optional(),
-  senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
-  senderRefNo: z
-    .string()
-    .optional()
-    .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم المرسل يجب أن يكون أرقاماً فقط'),
-  originalDate: z.string().optional(),
-  subject: z.string().min(3, 'الموضوع يجب أن يكون 3 أحرف على الأقل'),
-  transactionType: z.string().optional(),
-  priority: z.enum(['normal', 'urgent', 'immediate']),
-  confidentiality: z.enum(['normal', 'secret', 'top_secret']),
-  receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
-  recipientType: z.enum(['internal', 'external']),
-  recipientName: z.string().min(1, 'الجهة المرسل إليها مطلوبة'),
-});
+const schema = z
+  .object({
+    registryNo: z.string().optional(),
+    senderEntityId: z.string().min(1, 'الجهة المرسلة مطلوبة'),
+    senderRefNo: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم المرسل يجب أن يكون أرقاماً فقط'),
+    originalDate: z.string().optional(),
+    subject: z.string().min(3, 'الموضوع يجب أن يكون 3 أحرف على الأقل'),
+    transactionType: z.string().optional(),
+    priority: z.enum(['normal', 'urgent', 'immediate']),
+    confidentiality: z.enum(['normal', 'secret', 'top_secret']),
+    visibility: z.enum(['public', 'departments', 'private']),
+    visibilityDeptIds: z.array(z.string()).optional(),
+    receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
+    recipientType: z.enum(['internal', 'external']),
+    recipientName: z.string().min(1, 'الجهة المرسل إليها مطلوبة'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.visibility === 'departments' && (!data.visibilityDeptIds || data.visibilityDeptIds.length === 0)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['visibilityDeptIds'], message: 'اختر إدارة واحدة على الأقل' });
+    }
+  });
 
 type FormData = z.infer<typeof schema>;
 
@@ -63,7 +72,7 @@ function EditIncomingInner() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onChange',
-    defaultValues: { priority: 'normal', confidentiality: 'normal', recipientType: 'internal', senderEntityId: '1' },
+    defaultValues: { priority: 'normal', confidentiality: 'normal', visibility: 'public', visibilityDeptIds: [], recipientType: 'internal', senderEntityId: '1' },
   });
 
   // pre-fill once the correspondence is loaded
@@ -78,6 +87,8 @@ function EditIncomingInner() {
       transactionType: data.transactionType || '',
       priority: ((data.priority === 'top_secret' ? 'normal' : data.priority) as any) || 'normal',
       confidentiality: (data.confidentiality as any) || 'normal',
+      visibility: (data.visibility as any) || 'public',
+      visibilityDeptIds: data.visibilityDeptIds || [],
       receivedAt: data.receivedAt ? new Date(data.receivedAt).toISOString().slice(0, 16) : '',
       recipientType: (data.recipientType as any) || 'internal',
       recipientName: data.recipientName || '',
@@ -98,6 +109,8 @@ function EditIncomingInner() {
         transactionType: form.transactionType || '',
         priority: form.priority,
         confidentiality: form.confidentiality,
+        visibility: form.visibility,
+        visibilityDeptIds: form.visibility === 'departments' ? form.visibilityDeptIds : [],
         recipientType: form.recipientType,
         recipientName: form.recipientName,
       });
@@ -298,6 +311,19 @@ function EditIncomingInner() {
             )}
             {errors.recipientName && <p className="text-xs text-red-600 mt-1">{errors.recipientName.message}</p>}
           </div>
+        </div>
+
+        {/* صلاحية المشاهدة */}
+        <div className="card space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <IconUsers className="w-4 h-4 text-slate-400" /> صلاحية المشاهدة
+          </h2>
+          <VisibilitySelector
+            visibility={watch('visibility')}
+            onVisibilityChange={(v) => setValue('visibility', v as any, { shouldValidate: true })}
+            deptIds={watch('visibilityDeptIds') || []}
+            onDeptIdsChange={(ids) => setValue('visibilityDeptIds', ids, { shouldValidate: true })}
+          />
         </div>
 
         {/* المرفقات الحالية */}

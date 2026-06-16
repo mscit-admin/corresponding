@@ -14,7 +14,7 @@ import { incomingApi } from '@/lib/api';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence } from '@/lib/permissions';
-import { priorityLabel, confidentialityLabel, statusLabel } from '@/lib/incoming-constants';
+import { priorityLabel, confidentialityLabel, statusLabel, visibilityLabel } from '@/lib/incoming-constants';
 import { formatDateAr, formatDateTimeAr, timeAgoAr, cn } from '@/lib/utils';
 
 function CorrespondenceDetailsPageInner() {
@@ -30,6 +30,11 @@ function CorrespondenceDetailsPageInner() {
   });
 
   if (isLoading) return <div className="text-center py-10 text-slate-500">جارٍ تحميل المراسلة...</div>;
+  if (error) {
+    const status = (error as any)?.response?.status;
+    if (status === 403)
+      return <div className="card text-center py-12 text-slate-600">🔒 ليس لديك صلاحية مشاهدة هذه المراسلة</div>;
+  }
   if (error || !data) return <div className="card text-center py-10 text-slate-600">لم يتم العثور على المراسلة</div>;
 
   return (
@@ -76,6 +81,12 @@ function CorrespondenceDetailsPageInner() {
           {data.originalDate && <div><span className="text-slate-500">تاريخ المستند:</span> <span>{formatDateAr(data.originalDate)}</span></div>}
           <div><span className="text-slate-500">درجة الأهمية:</span> <span className="font-medium">{priorityLabel(data.priority)}</span></div>
           <div><span className="text-slate-500">درجة السرية:</span> <span className="font-medium">{confidentialityLabel(data.confidentiality)}</span></div>
+          <div>
+            <span className="text-slate-500">صلاحية المشاهدة:</span> <span className="font-medium">{visibilityLabel(data.visibility)}</span>
+            {data.visibility === 'departments' && data.visibilityDeptNames?.length ? (
+              <span className="text-slate-400"> ({data.visibilityDeptNames.join('، ')})</span>
+            ) : null}
+          </div>
           {data.dueDate && <div><span className="text-slate-500">المهلة:</span> <span className="text-amber-700 font-medium">{formatDateAr(data.dueDate)}</span></div>}
           {data.currentOwner && <div><span className="text-slate-500">المالك الحالي:</span> <span className="font-medium">{data.currentOwner.fullName}</span></div>}
         </div>
@@ -129,6 +140,37 @@ function CorrespondenceDetailsPageInner() {
           isCurrent
           isLast
         />
+      </div>
+
+      {/* Viewers (read tracking) */}
+      <div className="card">
+        <h2 className="text-sm font-medium mb-3 flex items-center gap-2">
+          <IconEye className="w-4 h-4 text-slate-400" /> من شاهد الرسالة
+          {data.viewers?.length ? <span className="text-slate-400 font-normal">({data.viewers.length})</span> : null}
+        </h2>
+        {!data.viewers?.length ? (
+          <p className="text-xs text-slate-400">لم يشاهدها أحد بعد.</p>
+        ) : (
+          <div className="space-y-2">
+            {data.viewers.map((v) => (
+              <div key={v.userId} className="flex items-center justify-between text-xs border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-semibold">
+                    {v.fullName?.slice(0, 2)}
+                  </span>
+                  <div>
+                    <div className="font-medium text-slate-800">{v.fullName}</div>
+                    {v.department && <div className="text-[10px] text-slate-400">{v.department}</div>}
+                  </div>
+                </div>
+                <div className="text-left text-slate-400">
+                  <div>{formatDateTimeAr(v.lastViewedAt)}</div>
+                  {v.viewCount > 1 && <div className="text-[10px]">{v.viewCount} مرّات</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Actions */}

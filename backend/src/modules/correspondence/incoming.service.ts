@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // Roles allowed to edit correspondence
 const EDIT_ROLES = ['super_admin', 'archive_mgr', 'diwan_officer'];
+// Roles that can see every correspondence regardless of visibility
+const MANAGER_ROLES = ['super_admin', 'archive_mgr'];
 
 // BigInt JSON serializer helper
 const serializeBigInt = (obj: any) => 
@@ -49,6 +51,7 @@ export class IncomingService {
         transactionType: data.transactionType || null,
         priority: data.priority || 'normal',
         confidentiality: data.confidentiality || 'normal',
+        visibility: data.visibility || 'public',
         status: 'new',
         createdBy: userIdBig,
         currentOwnerId: userIdBig,
@@ -67,8 +70,16 @@ export class IncomingService {
         include: { senderEntity: true },
       });
 
+      // Allowed departments when visibility = departments
+      if (createData.visibility === 'departments' && Array.isArray(data.visibilityDeptIds) && data.visibilityDeptIds.length) {
+        await this.prisma.incomingVisibilityDept.createMany({
+          data: data.visibilityDeptIds.map((d: any) => ({ incomingId: correspondence.id, departmentId: BigInt(d) })),
+          skipDuplicates: true,
+        });
+      }
+
       this.logger.log(`✓ Created correspondence id: ${correspondence.id}, serial: ${serialNo}`);
-      
+
       return serializeBigInt(correspondence);
     } catch (error) {
       this.logger.error(`❌ Error: ${error.message}`);
@@ -84,19 +95,39 @@ export class IncomingService {
     }
   }
 
-  async findAll(params: any, userId?: any) {
+  async findAll(params: any, user?: any) {
     const { skip = 0, take = 20, status, search } = params || {};
+    const userIdBig = user?.id ? BigInt(user.id) : undefined;
+    const deptBig = user?.departmentId ? BigInt(user.departmentId) : undefined;
+    const isManager = MANAGER_ROLES.includes(user?.role?.name);
+
     const where: any = {};
+    const and: any[] = [];
     if (status) where.status = status;
     if (search) {
-      where.OR = [
-        { subject: { contains: search } },
-        { serialNo: { contains: search } },
-        { senderRefNo: { contains: search } },
-        { recipientName: { contains: search } },
-        { senderEntity: { nameAr: { contains: search } } },
-      ];
+      and.push({
+        OR: [
+          { subject: { contains: search } },
+          { serialNo: { contains: search } },
+          { registryNo: { contains: search } },
+          { senderRefNo: { contains: search } },
+          { recipientName: { contains: search } },
+          { senderEntity: { nameAr: { contains: search } } },
+        ],
+      });
     }
+    // Visibility filter (managers see everything)
+    if (!isManager && userIdBig) {
+      const vis: any[] = [
+        { visibility: 'public' },
+        { createdBy: userIdBig },
+        { currentOwnerId: userIdBig },
+      ];
+      if (deptBig) vis.push({ visibility: 'departments', visibilityDepts: { some: { departmentId: deptBig } } });
+      and.push({ OR: vis });
+    }
+    if (and.length) where.AND = and;
+
     const [data, total] = await Promise.all([
       this.prisma.incomingCorrespondence.findMany({
         where,
@@ -126,29 +157,81 @@ export class IncomingService {
     return serializeBigInt({ data: dataWithCounts, total, skip: Number(skip), take: Number(take) });
   }
 
-  async findById(id: any) {
+  async findById(id: any, user?: any) {
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
     const item = await this.prisma.incomingCorrespondence.findUnique({
       where: { id: idBig },
-      include: { senderEntity: true },
+      include: { senderEntity: true, visibilityDepts: true },
     });
     if (!item) throw new NotFoundException('المراسلة غير موجودة');
-    
-    // Get attachments via raw query
+
+    // ---- Access control by visibility ----
+    const isManager = MANAGER_ROLES.includes(user?.role?.name);
+    const userIdBig = user?.id ? BigInt(user.id) : undefined;
+    const deptBig = user?.departmentId ? BigInt(user.departmentId) : undefined;
+    const isCreator = userIdBig != null && item.createdBy === userIdBig;
+    const isOwner = userIdBig != null && item.currentOwnerId === userIdBig;
+    const deptAllowed =
+      item.visibility === 'departments' && deptBig != null &&
+      item.visibilityDepts.some((v) => v.departmentId === deptBig);
+    const canView = isManager || item.visibility === 'public' || isCreator || isOwner || deptAllowed;
+    if (!canView) {
+      throw new ForbiddenException('ليس لديك صلاحية مشاهدة هذه المراسلة');
+    }
+
+    // ---- Record the view (not for the creator) ----
+    if (userIdBig != null && !isCreator) {
+      try {
+        await this.prisma.incomingView.upsert({
+          where: { incomingId_userId: { incomingId: idBig, userId: userIdBig } },
+          update: { lastViewedAt: new Date(), viewCount: { increment: 1 } },
+          create: { incomingId: idBig, userId: userIdBig },
+        });
+      } catch (e) {
+        this.logger.warn(`Could not record view: ${e.message}`);
+      }
+    }
+
+    // Attachments (raw query — table not in Prisma schema)
     const attachments = await this.prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, file_name as fileName, original_name as originalName, 
+      `SELECT id, file_name as fileName, original_name as originalName,
               file_path as filePath, mime_type as mimeType, file_size as fileSize,
               uploaded_at as uploadedAt
-       FROM attachments 
+       FROM attachments
        WHERE correspondence_type = 'incoming' AND correspondence_id = ?`,
-      idBig
+      idBig,
     );
-    
-    return serializeBigInt({ ...item, attachments });
+
+    // Viewers (read tracking)
+    const viewsRaw = await this.prisma.incomingView.findMany({
+      where: { incomingId: idBig },
+      orderBy: { lastViewedAt: 'desc' },
+      include: { user: { select: { fullName: true, department: { select: { name: true } } } } },
+    });
+    const viewers = viewsRaw.map((v) => ({
+      userId: v.userId,
+      fullName: v.user.fullName,
+      department: v.user.department?.name || null,
+      lastViewedAt: v.lastViewedAt,
+      viewCount: v.viewCount,
+    }));
+
+    // Allowed-department names (for display)
+    const visibilityDeptIds = item.visibilityDepts.map((v) => v.departmentId);
+    let visibilityDeptNames: string[] = [];
+    if (visibilityDeptIds.length) {
+      const depts = await this.prisma.department.findMany({
+        where: { id: { in: visibilityDeptIds } },
+        select: { name: true },
+      });
+      visibilityDeptNames = depts.map((d) => d.name);
+    }
+
+    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames });
   }
 
-  async findOne(id: any) {
-    return this.findById(id);
+  async findOne(id: any, user?: any) {
+    return this.findById(id, user);
   }
 
   async update(id: any, data: any, user: any) {
@@ -174,6 +257,7 @@ export class IncomingService {
     if (data.recipientType !== undefined) updateData.recipientType = data.recipientType || null;
     if (data.recipientName !== undefined) updateData.recipientName = data.recipientName || null;
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.visibility !== undefined) updateData.visibility = data.visibility;
     if (data.currentOwnerId !== undefined) {
       updateData.currentOwnerId = data.currentOwnerId ? BigInt(data.currentOwnerId) : null;
     }
@@ -184,6 +268,19 @@ export class IncomingService {
         data: updateData,
         include: { senderEntity: true },
       });
+
+      // Sync allowed departments when visibility / list changes
+      if (data.visibility !== undefined || data.visibilityDeptIds !== undefined) {
+        const finalVisibility = data.visibility !== undefined ? data.visibility : existing.visibility;
+        await this.prisma.incomingVisibilityDept.deleteMany({ where: { incomingId: idBig } });
+        if (finalVisibility === 'departments' && Array.isArray(data.visibilityDeptIds) && data.visibilityDeptIds.length) {
+          await this.prisma.incomingVisibilityDept.createMany({
+            data: data.visibilityDeptIds.map((d: any) => ({ incomingId: idBig, departmentId: BigInt(d) })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
       this.logger.log(`✓ Updated correspondence id: ${idBig} by ${user?.username}`);
       return serializeBigInt(updated);
     } catch (error) {

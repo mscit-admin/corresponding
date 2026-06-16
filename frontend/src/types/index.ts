@@ -4,7 +4,16 @@
 
 export type Priority = 'normal' | 'urgent' | 'immediate' | 'top_secret';
 export type Confidentiality = 'normal' | 'secret' | 'top_secret';
+export type Visibility = 'public' | 'departments' | 'private';
 export type IncomingStatus = 'new' | 'in_progress' | 'responded' | 'closed' | 'archived';
+
+export interface CorrespondenceViewer {
+  userId: string;
+  fullName: string;
+  department?: string | null;
+  lastViewedAt: string;
+  viewCount: number;
+}
 
 export interface AuthUser {
   id: string;
@@ -60,6 +69,10 @@ export interface IncomingCorrespondence {
   transactionType?: string;
   priority: Priority;
   confidentiality?: Confidentiality;
+  visibility?: Visibility;
+  visibilityDeptIds?: string[];
+  visibilityDeptNames?: string[];
+  viewers?: CorrespondenceViewer[];
   status: IncomingStatus;
   recipientType?: 'internal' | 'external';
   recipientName?: string;

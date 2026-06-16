@@ -106,6 +106,7 @@ model User {
   managedDepartments    Department[]              @relation("DepartmentManager")
   incomingCreated       IncomingCorrespondence[]  @relation("IncomingCreatedBy")
   incomingOwned         IncomingCorrespondence[]  @relation("IncomingOwner")
+  incomingViews         IncomingView[]            @relation("IncomingViewUser")
   outgoingCreated       OutgoingCorrespondence[]  @relation("OutgoingCreatedBy")
   outgoingApproved      OutgoingCorrespondence[]  @relation("OutgoingApprovedBy")
   outgoingOwned         OutgoingCorrespondence[]  @relation("OutgoingOwner")
@@ -149,6 +150,12 @@ enum Confidentiality {
   normal
   secret
   top_secret
+}
+
+enum Visibility {
+  public
+  departments
+  private
 }
 
 enum CorrespondenceType {
@@ -236,6 +243,7 @@ model IncomingCorrespondence {
   transactionType   String?        @map("transaction_type") @db.VarChar(100)
   priority          Priority       @default(normal)
   confidentiality   Confidentiality @default(normal)
+  visibility        Visibility     @default(public)
   categoryId        BigInt?        @map("category_id")
   currentOwnerId    BigInt?        @map("current_owner_id")
   status            IncomingStatus @default(new)
@@ -249,6 +257,8 @@ model IncomingCorrespondence {
   currentOwner  User?                    @relation("IncomingOwner", fields: [currentOwnerId], references: [id])
   creator       User                     @relation("IncomingCreatedBy", fields: [createdBy], references: [id])
   outgoingReply OutgoingCorrespondence[]
+  visibilityDepts IncomingVisibilityDept[]
+  views           IncomingView[]
 
   @@index([serialNo])
   @@index([receivedAt])
@@ -256,6 +266,34 @@ model IncomingCorrespondence {
   @@index([currentOwnerId])
   @@index([priority])
   @@map("incoming_correspondence")
+}
+
+model IncomingVisibilityDept {
+  id           BigInt @id @default(autoincrement())
+  incomingId   BigInt @map("incoming_id")
+  departmentId BigInt @map("department_id")
+
+  incoming IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+
+  @@unique([incomingId, departmentId])
+  @@index([departmentId])
+  @@map("incoming_visibility_depts")
+}
+
+model IncomingView {
+  id            BigInt   @id @default(autoincrement())
+  incomingId    BigInt   @map("incoming_id")
+  userId        BigInt   @map("user_id")
+  firstViewedAt DateTime @default(now()) @map("first_viewed_at")
+  lastViewedAt  DateTime @default(now()) @updatedAt @map("last_viewed_at")
+  viewCount     Int      @default(1) @map("view_count")
+
+  incoming IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+  user     User                   @relation("IncomingViewUser", fields: [userId], references: [id])
+
+  @@unique([incomingId, userId])
+  @@index([incomingId])
+  @@map("incoming_views")
 }
 
 model OutgoingCorrespondence {

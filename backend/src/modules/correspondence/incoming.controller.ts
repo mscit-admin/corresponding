@@ -27,13 +27,13 @@ export class IncomingController {
   @Get()
   @ApiOperation({ summary: 'قائمة المراسلات الواردة' })
   async findAll(@Query() query: QueryIncomingDto, @CurrentUser() user: AuthUser) {
-    return this.incomingService.findAll(query, user.id);
+    return this.incomingService.findAll(query, user);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'تفاصيل مراسلة واردة' })
-  async findOne(@Param('id') id: string) {
-    return this.incomingService.findById(BigInt(id));
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.incomingService.findById(BigInt(id), user);
   }
 
   @Patch(':id')

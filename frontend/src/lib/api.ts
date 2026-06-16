@@ -69,6 +69,8 @@ export const incomingApi = {
       recipientName?: string;
       status?: string;
       currentOwnerId?: string;
+      visibility?: string;
+      visibilityDeptIds?: string[];
     },
   ) => api.patch<IncomingCorrespondence>(`/correspondence/incoming/${id}`, data).then((r) => r.data),
   create: (data: {
@@ -83,6 +85,8 @@ export const incomingApi = {
     transactionType?: string;
     recipientType?: 'internal' | 'external';
     recipientName?: string;
+    visibility?: string;
+    visibilityDeptIds?: string[];
   }) =>
     api.post<IncomingCorrespondence>('/correspondence/incoming', data).then((r) => r.data),
 };

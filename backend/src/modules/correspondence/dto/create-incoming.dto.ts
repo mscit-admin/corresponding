@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumberString, Matches } from 'class-validator';
-import { Priority, Confidentiality } from '@prisma/client';
+import { IsArray, IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, IsDateString, IsNumberString, Matches } from 'class-validator';
+import { Priority, Confidentiality, Visibility } from '@prisma/client';
 
 export class CreateIncomingDto {
   @ApiProperty({ description: 'تاريخ ووقت الاستلام', example: '2026-05-18T10:23:00Z' })
@@ -55,6 +55,17 @@ export class CreateIncomingDto {
   @IsOptional()
   @IsEnum(Confidentiality)
   confidentiality?: Confidentiality = Confidentiality.normal;
+
+  @ApiPropertyOptional({ enum: Visibility, default: Visibility.public, description: 'صلاحية المشاهدة' })
+  @IsOptional()
+  @IsEnum(Visibility)
+  visibility?: Visibility = Visibility.public;
+
+  @ApiPropertyOptional({ description: 'معرّفات الإدارات المسموح لها بالمشاهدة', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsNumberString({}, { each: true })
+  visibilityDeptIds?: string[];
 
   @ApiPropertyOptional({ description: 'معرف التصنيف' })
   @IsOptional()
