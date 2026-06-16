@@ -100,7 +100,7 @@ function CorrespondenceDetailsPageInner() {
               <span className="text-slate-500">الجهة المرسل إليها:</span>{' '}
               <span className="font-medium">{data.recipientName}</span>
               {data.recipientType && (
-                <span className="text-slate-400"> ({data.recipientType === 'internal' ? 'داخلية' : 'خارجية'})</span>
+                <span className="text-slate-400"> ({data.recipientType === 'internal' ? 'إدارة' : 'مكتب'})</span>
               )}
             </div>
           )}

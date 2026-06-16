@@ -264,7 +264,7 @@ function EditIncomingInner() {
                 onChange={() => { setValue('recipientType', 'internal'); setValue('recipientName', '', { shouldValidate: true }); }}
               />
               <IconBuilding className="w-4 h-4" />
-              <div><div className="text-sm font-medium">جهة داخلية</div><div className="text-[10px] text-slate-500">إدارة داخل وزارتنا</div></div>
+              <div><div className="text-sm font-medium">الإدارات</div><div className="text-[10px] text-slate-500">إدارات داخل وزارتنا</div></div>
             </label>
 
             <label className={`cursor-pointer border rounded-md p-3 flex items-center gap-2 transition-colors ${
@@ -274,13 +274,13 @@ function EditIncomingInner() {
                 onChange={() => { setValue('recipientType', 'external'); setValue('recipientName', '', { shouldValidate: true }); }}
               />
               <IconBuilding className="w-4 h-4" />
-              <div><div className="text-sm font-medium">جهة خارجية</div><div className="text-[10px] text-slate-500">وزارة أو هيئة أخرى</div></div>
+              <div><div className="text-sm font-medium">المكاتب</div><div className="text-[10px] text-slate-500">المكاتب والجهات الخارجية</div></div>
             </label>
           </div>
 
           <div>
             <label className="label">
-              {recipientType === 'internal' ? 'الإدارة المستلمة' : 'الجهة الخارجية'} <span className="text-red-500">*</span>
+              {recipientType === 'internal' ? 'الإدارة المستلمة' : 'المكتب المستلم'} <span className="text-red-500">*</span>
             </label>
             {recipientType === 'internal' ? (
               <ManagedSelect
@@ -291,7 +291,7 @@ function EditIncomingInner() {
                 creator={allowed ? referenceApi.createDepartment : undefined}
                 getValue={(d) => d.name}
                 getLabel={(d) => d.name}
-                placeholder="-- اختر الإدارة المستلمة --"
+                placeholder="-- اختر الإدارة --"
                 canCreate={allowed}
                 createLabel="إضافة إدارة جديدة"
               />
@@ -304,9 +304,9 @@ function EditIncomingInner() {
                 creator={allowed ? referenceApi.createEntity : undefined}
                 getValue={(e) => e.nameAr}
                 getLabel={(e) => e.nameAr}
-                placeholder="-- اختر الجهة الخارجية --"
+                placeholder="-- اختر المكتب --"
                 canCreate={allowed}
-                createLabel="إضافة جهة جديدة"
+                createLabel="إضافة مكتب جديد"
               />
             )}
             {errors.recipientName && <p className="text-xs text-red-600 mt-1">{errors.recipientName.message}</p>}
