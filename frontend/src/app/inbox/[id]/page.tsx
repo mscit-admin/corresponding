@@ -37,6 +37,35 @@ function CorrespondenceDetailsPageInner() {
   }
   if (error || !data) return <div className="card text-center py-10 text-slate-600">لم يتم العثور على المراسلة</div>;
 
+  const handlePrint = () => {
+    const esc = (s?: string) =>
+      (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const w = window.open('', '_blank', 'width=720,height=560');
+    if (!w) return;
+    w.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>الرقم الإشاري</title>
+      <style>
+        body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:24px;color:#0f172a}
+        .box{border:2px solid #0f172a;border-radius:12px;padding:22px;max-width:540px;margin:auto}
+        .t{font-size:13px;color:#475569;text-align:center}
+        .serial{font-size:32px;font-weight:800;text-align:center;font-family:monospace;letter-spacing:2px;margin:12px 0;color:#1e3a8a}
+        .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;border-top:1px solid #e2e8f0;padding:7px 0}
+        .label{color:#64748b}
+      </style></head>
+      <body onload="window.print()">
+        <div class="box">
+          <div class="t">نظام الأرشفة الإلكترونية — وزارة الشؤون الإدارية</div>
+          <div class="t" style="margin-top:6px">الرقم الإشاري للمعاملة</div>
+          <div class="serial">${esc(data.serialNo)}</div>
+          ${data.registryNo ? `<div class="row"><span class="label">رقم القيد</span><span>${esc(data.registryNo)}</span></div>` : ''}
+          <div class="row"><span class="label">الموضوع</span><span>${esc(data.subject)}</span></div>
+          <div class="row"><span class="label">الجهة المرسلة</span><span>${esc(data.senderEntity?.nameAr)}</span></div>
+          <div class="row"><span class="label">تاريخ الورود</span><span>${formatDateTimeAr(data.receivedAt)}</span></div>
+        </div>
+      </body></html>`);
+    w.document.close();
+    w.focus();
+  };
+
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -181,7 +210,7 @@ function CorrespondenceDetailsPageInner() {
         <button className="btn"><IconCircleCheck className="w-4 h-4" /> اعتماد</button>
         <button className="btn"><IconArrowBackUp className="w-4 h-4" /> رد</button>
         <button className="btn"><IconSend className="w-4 h-4" /> تحويل</button>
-        <button className="btn"><IconPrinter className="w-4 h-4" /> طباعة</button>
+        <button onClick={handlePrint} className="btn"><IconPrinter className="w-4 h-4" /> طباعة الرقم الإشاري</button>
         <button className="btn"><IconArchive className="w-4 h-4" /> أرشفة</button>
       </div>
     </div>

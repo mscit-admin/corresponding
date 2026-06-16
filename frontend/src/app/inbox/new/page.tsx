@@ -18,7 +18,7 @@ import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
 import { ManagedSelect } from '@/components/ManagedSelect';
 import { useAuthStore } from '@/store/auth';
-import { canEditCorrespondence } from '@/lib/permissions';
+import { canManageReference } from '@/lib/permissions';
 import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS, TRANSACTION_TYPES } from '@/lib/incoming-constants';
 import { VisibilitySelector } from '@/components/VisibilitySelector';
 
@@ -53,7 +53,7 @@ function NewIncomingInner() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const canManage = canEditCorrespondence(user?.roleName);
+  const canManage = canManageReference(user?.roleName);
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const addFiles = (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]);

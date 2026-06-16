@@ -90,7 +90,7 @@ export class AttachmentsController {
   @ApiOperation({ summary: 'حذف مرفق (يتطلب صلاحية التعديل)' })
   async remove(@Param('id') id: string, @Req() req: any) {
     const roleName = req.user?.role?.name;
-    if (!['super_admin', 'archive_mgr', 'diwan_officer'].includes(roleName)) {
+    if (!['super_admin', 'archive_mgr'].includes(roleName)) {
       throw new ForbiddenException('ليس لديك صلاحية حذف المرفقات');
     }
     const deleted = await this.service.remove(id);

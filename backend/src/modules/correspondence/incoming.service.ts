@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-// Roles allowed to edit correspondence
-const EDIT_ROLES = ['super_admin', 'archive_mgr', 'diwan_officer'];
+// Roles allowed to EDIT correspondence (the supervisor/admin only — the
+// regular data-entry officer can register but not modify).
+const EDIT_ROLES = ['super_admin', 'archive_mgr'];
 // Roles that can see every correspondence regardless of visibility
 const MANAGER_ROLES = ['super_admin', 'archive_mgr'];
 
