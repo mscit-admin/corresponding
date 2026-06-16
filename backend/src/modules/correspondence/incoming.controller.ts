@@ -4,6 +4,7 @@ import { Request } from 'express';
 import { IncomingService } from './incoming.service';
 import { CreateIncomingDto } from './dto/create-incoming.dto';
 import { UpdateIncomingDto } from './dto/update-incoming.dto';
+import { RouteIncomingDto } from './dto/route-incoming.dto';
 import { QueryIncomingDto } from './dto/query-incoming.dto';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 
@@ -44,5 +45,15 @@ export class IncomingController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.incomingService.update(BigInt(id), dto, user);
+  }
+
+  @Post(':id/route')
+  @ApiOperation({ summary: 'توجيه/تهميش مراسلة إلى إدارات (للمدير)' })
+  async route(
+    @Param('id') id: string,
+    @Body() dto: RouteIncomingDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.incomingService.route(BigInt(id), dto, user);
   }
 }

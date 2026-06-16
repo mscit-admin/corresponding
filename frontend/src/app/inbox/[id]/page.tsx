@@ -13,7 +13,8 @@ import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { useAuthStore } from '@/store/auth';
-import { canEditCorrespondence } from '@/lib/permissions';
+import { canEditCorrespondence, canRoute } from '@/lib/permissions';
+import { RoutingSection } from '@/components/RoutingSection';
 import { priorityLabel, confidentialityLabel, statusLabel, visibilityLabel } from '@/lib/incoming-constants';
 import { formatDateAr, formatDateTimeAr, timeAgoAr, cn } from '@/lib/utils';
 
@@ -170,6 +171,9 @@ function CorrespondenceDetailsPageInner() {
           isLast
         />
       </div>
+
+      {/* Routing / referral (التوجيه) */}
+      <RoutingSection id={id} routings={data.routings} canRoute={canRoute(user?.roleName)} />
 
       {/* Viewers (read tracking) */}
       <div className="card">

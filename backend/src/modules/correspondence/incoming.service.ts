@@ -6,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 const EDIT_ROLES = ['super_admin', 'archive_mgr'];
 // Roles that can see every correspondence regardless of visibility
 const MANAGER_ROLES = ['super_admin', 'archive_mgr'];
+// Roles allowed to route/refer (تهميش) correspondence to departments
+const ROUTING_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
 
 // BigInt JSON serializer helper
 const serializeBigInt = (obj: any) => 
@@ -159,10 +161,30 @@ export class IncomingService {
     }) : [];
     const viewMap = new Map(viewCounts.map((v: any) => [v.incomingId.toString(), Number(v._count.id)]));
 
+    // Get routing (التوجيه) department names per item
+    const routings = ids.length > 0 ? await this.prisma.incomingRouting.findMany({
+      where: { incomingId: { in: ids } },
+      select: { incomingId: true, departmentId: true },
+    }) : [];
+    const routeDeptIds = [...new Set(routings.map((r) => r.departmentId.toString()))];
+    const routeDeptRows = routeDeptIds.length > 0 ? await this.prisma.department.findMany({
+      where: { id: { in: routeDeptIds.map((d) => BigInt(d)) } },
+      select: { id: true, name: true },
+    }) : [];
+    const deptNameMap = new Map(routeDeptRows.map((d) => [d.id.toString(), d.name]));
+    const routedMap = new Map<string, Set<string>>();
+    for (const r of routings) {
+      const key = r.incomingId.toString();
+      if (!routedMap.has(key)) routedMap.set(key, new Set());
+      const name = deptNameMap.get(r.departmentId.toString());
+      if (name) routedMap.get(key)!.add(name);
+    }
+
     const dataWithCounts = data.map((d: any) => ({
       ...d,
       attachmentCount: countMap.get(d.id.toString()) || 0,
       viewersCount: viewMap.get(d.id.toString()) || 0,
+      routedTo: Array.from(routedMap.get(d.id.toString()) || []),
     }));
 
     return serializeBigInt({ data: dataWithCounts, total, skip: Number(skip), take: Number(take) });
@@ -172,7 +194,14 @@ export class IncomingService {
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
     const item = await this.prisma.incomingCorrespondence.findUnique({
       where: { id: idBig },
-      include: { senderEntity: true, visibilityDepts: true },
+      include: {
+        senderEntity: true,
+        visibilityDepts: true,
+        routings: {
+          orderBy: { createdAt: 'desc' },
+          include: { routedByUser: { select: { fullName: true } } },
+        },
+      },
     });
     if (!item) throw new NotFoundException('المراسلة غير موجودة');
 
@@ -229,16 +258,28 @@ export class IncomingService {
 
     // Allowed-department names (for display)
     const visibilityDeptIds = item.visibilityDepts.map((v) => v.departmentId);
-    let visibilityDeptNames: string[] = [];
-    if (visibilityDeptIds.length) {
-      const depts = await this.prisma.department.findMany({
-        where: { id: { in: visibilityDeptIds } },
-        select: { name: true },
-      });
-      visibilityDeptNames = depts.map((d) => d.name);
-    }
+    const routingDeptIds = item.routings.map((r) => r.departmentId);
+    const allDeptIds = [...new Set([...visibilityDeptIds, ...routingDeptIds].map((d) => d.toString()))];
+    const deptRows = allDeptIds.length
+      ? await this.prisma.department.findMany({
+          where: { id: { in: allDeptIds.map((d) => BigInt(d)) } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const deptNameMap = new Map(deptRows.map((d) => [d.id.toString(), d.name]));
+    const visibilityDeptNames = visibilityDeptIds.map((d) => deptNameMap.get(d.toString())).filter(Boolean);
 
-    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames });
+    // Routing history (التوجيه / التهميش)
+    const routings = item.routings.map((r) => ({
+      id: r.id,
+      departmentId: r.departmentId,
+      departmentName: deptNameMap.get(r.departmentId.toString()) || null,
+      note: r.note,
+      routedBy: r.routedByUser?.fullName || null,
+      createdAt: r.createdAt,
+    }));
+
+    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames, routings });
   }
 
   async findOne(id: any, user?: any) {
@@ -300,5 +341,44 @@ export class IncomingService {
       }
       throw new BadRequestException(`خطأ في تعديل المراسلة: ${error.message}`);
     }
+  }
+
+  // التوجيه / التهميش — direct the message to one or more departments
+  async route(id: any, data: any, user: any) {
+    const roleName = user?.role?.name;
+    if (!ROUTING_ROLES.includes(roleName)) {
+      throw new ForbiddenException('ليس لديك صلاحية توجيه المراسلات');
+    }
+    const idBig = typeof id === 'bigint' ? id : BigInt(id);
+    const item = await this.prisma.incomingCorrespondence.findUnique({ where: { id: idBig } });
+    if (!item) throw new NotFoundException('المراسلة غير موجودة');
+
+    const deptIds: string[] = Array.isArray(data?.departmentIds) ? data.departmentIds : [];
+    if (!deptIds.length) throw new BadRequestException('اختر إدارة واحدة على الأقل للتوجيه');
+    const note = data?.note?.trim() || null;
+    const userIdBig = BigInt(user.id);
+
+    // routing records (one per department)
+    await this.prisma.incomingRouting.createMany({
+      data: deptIds.map((d) => ({ incomingId: idBig, departmentId: BigInt(d), note, routedBy: userIdBig })),
+    });
+
+    // grant the routed departments visibility on the message
+    await this.prisma.incomingVisibilityDept.createMany({
+      data: deptIds.map((d) => ({ incomingId: idBig, departmentId: BigInt(d) })),
+      skipDuplicates: true,
+    });
+
+    // make the routed departments effective + mark as in progress
+    await this.prisma.incomingCorrespondence.update({
+      where: { id: idBig },
+      data: {
+        visibility: item.visibility === 'public' ? 'public' : 'departments',
+        status: item.status === 'new' ? 'in_progress' : item.status,
+      },
+    });
+
+    this.logger.log(`✓ Routed correspondence ${idBig} to depts [${deptIds.join(',')}] by ${user?.username}`);
+    return this.findById(idBig, user);
   }
 }

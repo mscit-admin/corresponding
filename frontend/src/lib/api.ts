@@ -73,6 +73,8 @@ export const incomingApi = {
       visibilityDeptIds?: string[];
     },
   ) => api.patch<IncomingCorrespondence>(`/correspondence/incoming/${id}`, data).then((r) => r.data),
+  route: (id: string, data: { departmentIds: string[]; note?: string }) =>
+    api.post<IncomingCorrespondence>(`/correspondence/incoming/${id}/route`, data).then((r) => r.data),
   create: (data: {
     receivedAt: string;
     senderEntityId: string;

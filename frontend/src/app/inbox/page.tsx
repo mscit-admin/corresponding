@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   IconPlus, IconFilter, IconFileText, IconBuilding, IconUser, IconCalendar,
   IconAlertTriangle, IconInbox, IconEye, IconSend, IconPrinter, IconArchive,
-  IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip, IconEyeCheck,
+  IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip, IconEyeCheck, IconRoute,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
@@ -167,6 +167,9 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
         {item.recipientName && (
           <div className="flex items-center gap-1.5"><IconUser className="w-3.5 h-3.5 text-slate-400" /><span>إلى: <span className="text-slate-900">{item.recipientName}</span></span></div>
         )}
+        {item.routedTo?.length ? (
+          <div className="flex items-center gap-1.5"><IconRoute className="w-3.5 h-3.5 text-emerald-600" /><span>التوجيه: <span className="text-slate-900">{item.routedTo.join('، ')}</span></span></div>
+        ) : null}
         <div className="flex items-center gap-1.5"><IconCalendar className="w-3.5 h-3.5 text-slate-400" /><span>وردت: {formatDateAr(item.receivedAt)}</span></div>
       </div>
 

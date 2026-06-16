@@ -39,7 +39,7 @@ const schema = z
     visibilityDeptIds: z.array(z.string()).optional(),
     receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
     recipientType: z.enum(['internal', 'external']),
-    recipientName: z.string().min(1, 'الجهة المرسل إليها مطلوبة'),
+    recipientName: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.visibility === 'departments' && (!data.visibilityDeptIds || data.visibilityDeptIds.length === 0)) {
@@ -280,7 +280,7 @@ function EditIncomingInner() {
 
           <div>
             <label className="label">
-              {recipientType === 'internal' ? 'الإدارة المستلمة' : 'المكتب المستلم'} <span className="text-red-500">*</span>
+              {recipientType === 'internal' ? 'الإدارة المستلمة' : 'المكتب المستلم'}
             </label>
             {recipientType === 'internal' ? (
               <ManagedSelect

@@ -39,7 +39,7 @@ const schema = z
     visibilityDeptIds: z.array(z.string()).optional(),
     receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
     recipientType: z.enum(['internal', 'external']),
-    recipientName: z.string().min(1, 'الجهة المرسل إليها مطلوبة'),
+    recipientName: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.visibility === 'departments' && (!data.visibilityDeptIds || data.visibilityDeptIds.length === 0)) {
@@ -230,9 +230,15 @@ function NewIncomingInner() {
 
         {/* الجهة المرسل إليها */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <IconUsers className="w-4 h-4 text-slate-400" /> الجهة المرسل إليها
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <IconUsers className="w-4 h-4 text-slate-400" /> الجهة المرسل إليها
+            </h2>
+            <span className="text-xs text-slate-500">اختياري</span>
+          </div>
+          <p className="text-[11px] text-slate-400 -mt-2">
+            يكفي توثيق الرسالة وحفظها؛ ويتم <strong>توجيهها للإدارة المختصة</strong> لاحقاً من المدير عبر «التوجيه».
+          </p>
 
           {/* اختيار النوع */}
           <div className="grid grid-cols-2 gap-2">
@@ -271,7 +277,6 @@ function NewIncomingInner() {
           <div>
             <label className="label">
               {recipientType === 'internal' ? 'الإدارة المستلمة' : 'المكتب المستلم'}
-              <span className="text-red-500">*</span>
             </label>
             {recipientType === 'internal' ? (
               <ManagedSelect

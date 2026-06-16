@@ -12,3 +12,10 @@ export function canEditCorrespondence(roleName?: string): boolean {
 export function canManageReference(roleName?: string): boolean {
   return !!roleName && REFERENCE_ROLES.includes(roleName);
 }
+
+// Roles allowed to route/refer (تهميش) a message to departments.
+export const ROUTING_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
+
+export function canRoute(roleName?: string): boolean {
+  return !!roleName && ROUTING_ROLES.includes(roleName);
+}

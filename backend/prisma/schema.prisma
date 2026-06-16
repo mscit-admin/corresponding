@@ -107,6 +107,7 @@ model User {
   incomingCreated       IncomingCorrespondence[]  @relation("IncomingCreatedBy")
   incomingOwned         IncomingCorrespondence[]  @relation("IncomingOwner")
   incomingViews         IncomingView[]            @relation("IncomingViewUser")
+  incomingRoutings      IncomingRouting[]         @relation("IncomingRoutedBy")
   outgoingCreated       OutgoingCorrespondence[]  @relation("OutgoingCreatedBy")
   outgoingApproved      OutgoingCorrespondence[]  @relation("OutgoingApprovedBy")
   outgoingOwned         OutgoingCorrespondence[]  @relation("OutgoingOwner")
@@ -259,6 +260,7 @@ model IncomingCorrespondence {
   outgoingReply OutgoingCorrespondence[]
   visibilityDepts IncomingVisibilityDept[]
   views           IncomingView[]
+  routings        IncomingRouting[]
 
   @@index([serialNo])
   @@index([receivedAt])
@@ -294,6 +296,22 @@ model IncomingView {
   @@unique([incomingId, userId])
   @@index([incomingId])
   @@map("incoming_views")
+}
+
+model IncomingRouting {
+  id           BigInt   @id @default(autoincrement())
+  incomingId   BigInt   @map("incoming_id")
+  departmentId BigInt   @map("department_id")
+  note         String?  @db.Text
+  routedBy     BigInt   @map("routed_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  incoming     IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+  routedByUser User                   @relation("IncomingRoutedBy", fields: [routedBy], references: [id])
+
+  @@index([incomingId])
+  @@index([departmentId])
+  @@map("incoming_routings")
 }
 
 model OutgoingCorrespondence {

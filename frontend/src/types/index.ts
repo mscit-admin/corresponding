@@ -15,6 +15,15 @@ export interface CorrespondenceViewer {
   viewCount: number;
 }
 
+export interface IncomingRouting {
+  id: string;
+  departmentId: string;
+  departmentName?: string | null;
+  note?: string | null;
+  routedBy?: string | null;
+  createdAt: string;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -73,6 +82,8 @@ export interface IncomingCorrespondence {
   visibilityDeptIds?: string[];
   visibilityDeptNames?: string[];
   viewers?: CorrespondenceViewer[];
+  routings?: IncomingRouting[];
+  routedTo?: string[];
   status: IncomingStatus;
   recipientType?: 'internal' | 'external';
   recipientName?: string;
