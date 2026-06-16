@@ -1,7 +1,7 @@
 # =====================================================================
 # GSDMS - Full stack (database + backend API + frontend)
 # Run everything with:  docker compose up --build
-#   Frontend  → http://localhost:3200   (login: admin / Admin@1234)
+#   Frontend  → http://localhost:3300   (login: admin / Admin@1234)
 #   API       → http://localhost:3100
 #   Swagger   → http://localhost:3100/api/docs
 # =====================================================================
@@ -42,7 +42,7 @@ services:
       JWT_SECRET: "change-me-in-production-use-a-long-random-string-min-32-chars"
       JWT_EXPIRES_IN: "8h"
       JWT_REFRESH_EXPIRES_IN: "7d"
-      CORS_ORIGIN: "http://localhost:3200"
+      CORS_ORIGIN: "http://localhost:3300"
       BCRYPT_ROUNDS: "10"
     ports:
       - "3100:3100"
@@ -63,7 +63,7 @@ services:
       PORT: "3200"
       HOSTNAME: "0.0.0.0"
     ports:
-      - "3200:3200"
+      - "3300:3200"
 
 volumes:
   db_data:

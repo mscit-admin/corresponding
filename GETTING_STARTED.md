@@ -106,7 +106,7 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-✅ Frontend شغّال على: **http://localhost:3200**
+✅ Frontend شغّال على: **http://localhost:3300**
 
 ---
 
@@ -115,7 +115,7 @@ npm run dev
 روح على:
 
 ```
-http://localhost:3200
+http://localhost:3300
 ```
 
 سجّل دخول بـ:

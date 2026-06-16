@@ -25,7 +25,7 @@ copy .env.local.example .env.local
 npm run dev
 ```
 
-يعمل على: **http://localhost:3200**
+يعمل على: **http://localhost:3300**
 
 ## ⚠️ المتطلب الأساسي
 
