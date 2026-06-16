@@ -118,6 +118,10 @@ model User {
   printTemplatesCreated PrintTemplate[]
   printsRequested       PrintLog[]                @relation("PrintRequester")
   printsApproved        PrintLog[]                @relation("PrintApprover")
+  allocationCreated     AllocationRequest[]       @relation("AllocationCreatedBy")
+  allocationOwned       AllocationRequest[]       @relation("AllocationOwner")
+  allocationEvents      AllocationEvent[]         @relation("AllocationEventUser")
+  minutesCreated        CommitteeMinutes[]        @relation("MinutesCreatedBy")
 
   @@index([username])
   @@index([email])
@@ -155,6 +159,7 @@ enum CorrespondenceType {
   incoming
   outgoing
   internal
+  allocation
 }
 
 enum IncomingStatus {
@@ -195,8 +200,9 @@ model ExternalEntity {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  incomingSent     IncomingCorrespondence[]
-  outgoingReceived OutgoingCorrespondence[]
+  incomingSent       IncomingCorrespondence[]
+  outgoingReceived   OutgoingCorrespondence[]
+  allocationRequests AllocationRequest[]      @relation("AllocationOffice")
 
   @@index([nameAr])
   @@index([type])
@@ -565,4 +571,135 @@ model PrintLog {
   @@index([qrHash])
   @@index([status, requestedAt])
   @@map("print_logs")
+}
+
+// =====================================================================
+// MODULE 5: LAND ALLOCATION COMMITTEE (لجنة التخصيص)
+// لجنة مشتركة بين مصلحة أملاك الدولة ورئاسة الوزراء
+// =====================================================================
+
+enum AllocationStatus {
+  received           // وارد - تم استلام الطلب وتسجيل الأسبقية
+  under_review       // قيد العرض على اللجنة / الدراسة
+  missing_docs       // نواقص - بانتظار استيفاء البيانات من المكتب المختص
+  committee_approved // وافقت اللجنة على التخصيص (بانتظار اعتماد المحضر بمجلس الوزراء)
+  committee_rejected // لم توافق اللجنة (بانتظار اعتماد المحضر بمجلس الوزراء)
+  approved           // اعتُمد المحضر وصدر قرار التخصيص (محوّل للمكتب المختص)
+  rejected           // مرفوض نهائياً وأُبلغ المكتب المختص بعدم الموافقة
+}
+
+enum AllocationDocType {
+  kroki                // رسم كروكي معتمد من التخطيط العمراني
+  realestate_cert      // شهادة عقارية باسم الدولة
+  agriculture_approval // موافقة وزارة الزراعة (في حال وجود الموقع خارج المخطط)
+  field_report         // تقرير مفصل من واقع الطبيعة من المكتب المختص
+  other
+}
+
+enum AllocationDocStatus {
+  pending
+  received
+}
+
+enum MinutesStatus {
+  draft            // مسودة - قيد التجهيز
+  cabinet_approved // معتمد من مجلس الوزراء
+}
+
+/// طلب تخصيص أرض - الكيان الرئيسي للجنة
+model AllocationRequest {
+  id                BigInt           @id @default(autoincrement())
+  serialNo          String           @unique @map("serial_no") @db.VarChar(50)
+  priorityNo        Int?             @map("priority_no") @db.UnsignedInt // الأسبقية
+  receivedAt        DateTime         @map("received_at")
+  requestingOfficeId BigInt          @map("requesting_office_id") // المكتب المختص / الجهة طالبة التخصيص
+  beneficiary       String?          @db.VarChar(255) // الجهة المستفيدة من التخصيص
+  subject           String           @db.Text // موضوع الطلب
+  purpose           String?          @db.Text // الغرض من التخصيص
+  locationDesc      String?          @map("location_desc") @db.Text // وصف الموقع
+  area              String?          @db.VarChar(100) // المساحة
+  isOutsidePlan     Boolean          @default(false) @map("is_outside_plan") // الموقع خارج المخطط
+  priority          Priority         @default(normal)
+  status            AllocationStatus @default(received)
+  incomingId        BigInt?          @map("incoming_id") // ربط اختياري بمراسلة واردة
+  committeeNotes    String?          @map("committee_notes") @db.Text // ملاحظات/توصية اللجنة
+  rejectionReason   String?          @map("rejection_reason") @db.Text // سبب عدم الموافقة
+  minutesId         BigInt?          @map("minutes_id")
+  minutesItemNo     Int?             @map("minutes_item_no") @db.UnsignedInt // الرقم في المحضر (1..12)
+  decisionNo        String?          @map("decision_no") @db.VarChar(100) // رقم قرار التخصيص
+  decisionDate      DateTime?        @map("decision_date")
+  cabinetApprovedAt DateTime?        @map("cabinet_approved_at")
+  currentOwnerId    BigInt?          @map("current_owner_id")
+  createdBy         BigInt           @map("created_by")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  requestingOffice ExternalEntity       @relation("AllocationOffice", fields: [requestingOfficeId], references: [id])
+  minutes          CommitteeMinutes?    @relation(fields: [minutesId], references: [id])
+  currentOwner     User?                @relation("AllocationOwner", fields: [currentOwnerId], references: [id])
+  creator          User                 @relation("AllocationCreatedBy", fields: [createdBy], references: [id])
+  documents        AllocationDocument[]
+  events           AllocationEvent[]
+
+  @@index([serialNo])
+  @@index([status])
+  @@index([priority])
+  @@index([minutesId])
+  @@index([requestingOfficeId])
+  @@map("allocation_requests")
+}
+
+/// قائمة المستندات المطلوبة لكل طلب (نواقص/مستوفاة)
+model AllocationDocument {
+  id         BigInt              @id @default(autoincrement())
+  requestId  BigInt              @map("request_id")
+  docType    AllocationDocType   @map("doc_type")
+  required   Boolean             @default(true)
+  status     AllocationDocStatus @default(pending)
+  notes      String?             @db.Text
+  receivedAt DateTime?           @map("received_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  request AllocationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("allocation_documents")
+}
+
+/// محضر اللجنة - يضم حتى 12 طلباً ويُعتمد من مجلس الوزراء
+model CommitteeMinutes {
+  id                BigInt        @id @default(autoincrement())
+  minutesNo         String        @unique @map("minutes_no") @db.VarChar(50)
+  meetingDate       DateTime      @map("meeting_date")
+  status            MinutesStatus @default(draft)
+  notes             String?       @db.Text
+  cabinetApprovedAt DateTime?     @map("cabinet_approved_at")
+  createdBy         BigInt        @map("created_by")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  creator  User                @relation("MinutesCreatedBy", fields: [createdBy], references: [id])
+  requests AllocationRequest[]
+
+  @@index([status])
+  @@map("committee_minutes")
+}
+
+/// سجل تتبّع كامل لكل إجراء على الطلب (للاحتفاظ بكامل البيانات)
+model AllocationEvent {
+  id         BigInt   @id @default(autoincrement())
+  requestId  BigInt   @map("request_id")
+  action     String   @db.VarChar(100)
+  fromStatus String?  @map("from_status") @db.VarChar(50)
+  toStatus   String?  @map("to_status") @db.VarChar(50)
+  notes      String?  @db.Text
+  userId     BigInt   @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  request AllocationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User              @relation("AllocationEventUser", fields: [userId], references: [id])
+
+  @@index([requestId])
+  @@map("allocation_events")
 }

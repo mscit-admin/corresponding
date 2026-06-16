@@ -4,7 +4,7 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import Link from 'next/link';
 import {
   IconInbox, IconClock, IconAlertTriangle, IconCheck, IconArrowLeft,
-  IconPlus, IconSearch, IconBuilding,
+  IconPlus, IconSearch, IconBuilding, IconGavel,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { useQuery } from '@tanstack/react-query';
@@ -63,6 +63,9 @@ function DashboardPageInner() {
           </Link>
           <Link href="/inbox/new" className="btn-primary">
             <IconPlus className="w-4 h-4" /> تسجيل وارد جديد
+          </Link>
+          <Link href="/allocation" className="btn">
+            <IconGavel className="w-4 h-4" /> لجنة التخصيص
           </Link>
           <button className="btn" disabled>
             <IconSearch className="w-4 h-4" /> بحث متقدم

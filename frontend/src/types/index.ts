@@ -89,3 +89,95 @@ export interface PaginatedResponse<T> {
   skip: number;
   take: number;
 }
+
+// =========================
+// Allocation Committee (لجنة التخصيص)
+// =========================
+
+export type AllocationStatus =
+  | 'received'
+  | 'under_review'
+  | 'missing_docs'
+  | 'committee_approved'
+  | 'committee_rejected'
+  | 'approved'
+  | 'rejected';
+
+export type AllocationDocType =
+  | 'kroki'
+  | 'realestate_cert'
+  | 'agriculture_approval'
+  | 'field_report'
+  | 'other';
+
+export type AllocationDocStatus = 'pending' | 'received';
+export type MinutesStatus = 'draft' | 'cabinet_approved';
+
+export interface AllocationDocument {
+  id: string;
+  docType: AllocationDocType;
+  required: boolean;
+  status: AllocationDocStatus;
+  notes?: string;
+  receivedAt?: string;
+}
+
+export interface AllocationEvent {
+  id: string;
+  action: string;
+  fromStatus?: string;
+  toStatus?: string;
+  notes?: string;
+  createdAt: string;
+  user?: { id: string; fullName: string; username: string };
+}
+
+export interface CommitteeMinutes {
+  id: string;
+  minutesNo: string;
+  meetingDate: string;
+  status: MinutesStatus;
+  notes?: string;
+  cabinetApprovedAt?: string;
+  createdAt: string;
+  creator?: { id: string; fullName: string };
+  requests?: AllocationRequest[];
+  _count?: { requests: number };
+}
+
+export interface AllocationRequest {
+  id: string;
+  serialNo: string;
+  priorityNo?: number;
+  receivedAt: string;
+  beneficiary?: string;
+  subject: string;
+  purpose?: string;
+  locationDesc?: string;
+  area?: string;
+  isOutsidePlan: boolean;
+  priority: Priority;
+  status: AllocationStatus;
+  incomingId?: string;
+  committeeNotes?: string;
+  rejectionReason?: string;
+  minutesId?: string;
+  minutesItemNo?: number;
+  decisionNo?: string;
+  decisionDate?: string;
+  cabinetApprovedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  requestingOffice?: ExternalEntity;
+  minutes?: CommitteeMinutes;
+  currentOwner?: { id: string; fullName: string; username: string };
+  creator?: { id: string; fullName: string; username: string };
+  documents?: AllocationDocument[];
+  events?: AllocationEvent[];
+  attachments?: Attachment[];
+}
+
+export interface AllocationStats {
+  total: number;
+  byStatus: Record<string, number>;
+}

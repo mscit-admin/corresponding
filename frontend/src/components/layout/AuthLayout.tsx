@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconBell, IconHome, IconInbox,
-  IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout,
+  IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconGavel,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/dashboard', label: 'الرئيسية', icon: IconHome },
   { href: '/inbox', label: 'صندوق الوارد', icon: IconInbox, badge: '24' },
+  { href: '/allocation', label: 'لجنة التخصيص', icon: IconGavel },
   { href: '/outgoing', label: 'الصادر', icon: IconSend, disabled: true },
   { href: '/archive', label: 'الأرشيف', icon: IconFileText, disabled: true },
   { href: '/reports', label: 'التقارير', icon: IconChartBar, disabled: true },

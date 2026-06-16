@@ -61,8 +61,8 @@ export class AttachmentsController {
     @Req() req: any,
   ) {
     if (!file) throw new BadRequestException('لم يتم تحديد ملف');
-    if (!['incoming', 'outgoing'].includes(type)) {
-      throw new BadRequestException('نوع المراسلة يجب أن يكون incoming أو outgoing');
+    if (!['incoming', 'outgoing', 'allocation'].includes(type)) {
+      throw new BadRequestException('نوع المراسلة يجب أن يكون incoming أو outgoing أو allocation');
     }
     return this.service.save({
       correspondenceType: type,

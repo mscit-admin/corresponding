@@ -35,7 +35,10 @@ api.interceptors.response.use(
 // API Endpoints
 // =========================
 
-import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department } from '@/types';
+import type {
+  LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department,
+  AllocationRequest, AllocationDocument, CommitteeMinutes, AllocationStats,
+} from '@/types';
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -92,6 +95,60 @@ export const referenceApi = {
   createEntity: (nameAr: string) => api.post<ExternalEntity>('/entities', { nameAr }).then((r) => r.data),
   departments: () => api.get<Department[]>('/departments').then((r) => r.data),
   createDepartment: (name: string) => api.post<Department>('/departments', { name }).then((r) => r.data),
+};
+
+export const allocationApi = {
+  list: (params?: {
+    skip?: number; take?: number; status?: string; priority?: string; minutesId?: string; search?: string;
+  }) => api.get<PaginatedResponse<AllocationRequest>>('/allocation/requests', { params }).then((r) => r.data),
+  stats: () => api.get<AllocationStats>('/allocation/requests/stats').then((r) => r.data),
+  getById: (id: string) =>
+    api.get<AllocationRequest>(`/allocation/requests/${id}`).then((r) => r.data),
+  create: (data: {
+    receivedAt: string;
+    requestingOfficeId: string;
+    subject: string;
+    priorityNo?: string;
+    beneficiary?: string;
+    purpose?: string;
+    locationDesc?: string;
+    area?: string;
+    isOutsidePlan?: boolean;
+    priority?: string;
+    incomingId?: string;
+  }) => api.post<AllocationRequest>('/allocation/requests', data).then((r) => r.data),
+  update: (id: string, data: Partial<AllocationRequest> & { requestingOfficeId?: string; priorityNo?: string }) =>
+    api.patch<AllocationRequest>(`/allocation/requests/${id}`, data).then((r) => r.data),
+
+  // workflow
+  submit: (id: string, notes?: string) =>
+    api.post(`/allocation/requests/${id}/submit`, { notes }).then((r) => r.data),
+  markMissing: (id: string, notes?: string) =>
+    api.post(`/allocation/requests/${id}/missing`, { notes }).then((r) => r.data),
+  committeeDecision: (id: string, decision: 'approve' | 'reject', notes?: string) =>
+    api.post(`/allocation/requests/${id}/committee-decision`, { decision, notes }).then((r) => r.data),
+  assignMinutes: (id: string, minutesId: string, itemNo: number) =>
+    api.post(`/allocation/requests/${id}/assign-minutes`, { minutesId, itemNo }).then((r) => r.data),
+  recordDecision: (id: string, decisionNo?: string, decisionDate?: string) =>
+    api.post(`/allocation/requests/${id}/decision`, { decisionNo, decisionDate }).then((r) => r.data),
+
+  // documents checklist
+  addDocument: (id: string, data: { docType: string; required?: boolean; status?: string; notes?: string }) =>
+    api.post<AllocationDocument>(`/allocation/requests/${id}/documents`, data).then((r) => r.data),
+  updateDocument: (
+    id: string,
+    docId: string,
+    data: { status?: string; notes?: string; required?: boolean },
+  ) => api.patch<AllocationDocument>(`/allocation/requests/${id}/documents/${docId}`, data).then((r) => r.data),
+};
+
+export const minutesApi = {
+  list: () => api.get<CommitteeMinutes[]>('/allocation/minutes').then((r) => r.data),
+  getById: (id: string) => api.get<CommitteeMinutes>(`/allocation/minutes/${id}`).then((r) => r.data),
+  create: (data: { minutesNo: string; meetingDate: string; notes?: string }) =>
+    api.post<CommitteeMinutes>('/allocation/minutes', data).then((r) => r.data),
+  cabinetApprove: (id: string) =>
+    api.post<CommitteeMinutes>(`/allocation/minutes/${id}/cabinet-approve`, {}).then((r) => r.data),
 };
 
 export const attachmentsApi = {

@@ -16,24 +16,34 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Upload a single attachment to an incoming correspondence. */
-export async function uploadAttachment(correspondenceId: string, file: File): Promise<void> {
+export type AttachmentParent = 'incoming' | 'outgoing' | 'allocation';
+
+/** Upload a single attachment to a correspondence/allocation record. */
+export async function uploadAttachment(
+  correspondenceId: string,
+  file: File,
+  type: AttachmentParent = 'incoming',
+): Promise<void> {
   const raw = typeof window !== 'undefined' ? localStorage.getItem('gsdms-auth') : null;
   const token = raw ? JSON.parse(raw).state?.token : null;
   const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100/api/v1';
   const formData = new FormData();
   formData.append('file', file);
-  await axios.post(`${base}/attachments/upload/incoming/${correspondenceId}`, formData, {
+  await axios.post(`${base}/attachments/upload/${type}/${correspondenceId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` },
   });
 }
 
 /** Upload several attachments; returns how many failed. */
-export async function uploadAttachments(correspondenceId: string, files: File[]): Promise<number> {
+export async function uploadAttachments(
+  correspondenceId: string,
+  files: File[],
+  type: AttachmentParent = 'incoming',
+): Promise<number> {
   let failed = 0;
   for (const file of files) {
     try {
-      await uploadAttachment(correspondenceId, file);
+      await uploadAttachment(correspondenceId, file, type);
     } catch (e) {
       console.error('Upload failed:', file.name, e);
       failed += 1;
