@@ -54,7 +54,9 @@ export class IncomingService {
         transactionType: data.transactionType || null,
         priority: data.priority || 'normal',
         confidentiality: data.confidentiality || 'normal',
-        visibility: data.visibility || 'public',
+        // الوارد الجديد مقيّد افتراضياً: يشاهده مُدخِله والمسؤولون فقط،
+        // ولا يظهر لأي إدارة إلا بعد أن يوجّهه المدير إليها (route)
+        visibility: data.visibility || 'private',
         status: 'new',
         createdBy: userIdBig,
         currentOwnerId: userIdBig,

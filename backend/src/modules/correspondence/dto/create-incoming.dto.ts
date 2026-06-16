@@ -56,10 +56,10 @@ export class CreateIncomingDto {
   @IsEnum(Confidentiality)
   confidentiality?: Confidentiality = Confidentiality.normal;
 
-  @ApiPropertyOptional({ enum: Visibility, default: Visibility.public, description: 'صلاحية المشاهدة' })
+  @ApiPropertyOptional({ enum: Visibility, default: Visibility.private, description: 'صلاحية المشاهدة (مقيّد افتراضياً حتى التوجيه)' })
   @IsOptional()
   @IsEnum(Visibility)
-  visibility?: Visibility = Visibility.public;
+  visibility?: Visibility = Visibility.private;
 
   @ApiPropertyOptional({ description: 'معرّفات الإدارات المسموح لها بالمشاهدة', type: [String] })
   @IsOptional()
