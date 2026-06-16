@@ -96,15 +96,6 @@ function CorrespondenceDetailsPageInner() {
           <div><span className="text-slate-500">رقم المعاملة:</span> <span className="font-mono font-medium">{data.serialNo}</span></div>
           {data.registryNo && <div><span className="text-slate-500">رقم القيد:</span> <span className="font-mono font-medium">{data.registryNo}</span></div>}
           <div><span className="text-slate-500">الجهة المرسلة:</span> <span className="font-medium">{data.senderEntity?.nameAr}</span></div>
-          {data.recipientName && (
-            <div>
-              <span className="text-slate-500">الجهة المرسل إليها:</span>{' '}
-              <span className="font-medium">{data.recipientName}</span>
-              {data.recipientType && (
-                <span className="text-slate-400"> ({data.recipientType === 'internal' ? 'إدارة' : 'مكتب'})</span>
-              )}
-            </div>
-          )}
           {data.senderRefNo && <div><span className="text-slate-500">رقم المرسل:</span> <span className="font-mono">{data.senderRefNo}</span></div>}
           {data.transactionType && <div><span className="text-slate-500">نوع المعاملة:</span> <span className="font-medium">{data.transactionType}</span></div>}
           <div><span className="text-slate-500">تاريخ ورودها:</span> <span>{formatDateTimeAr(data.receivedAt)}</span></div>

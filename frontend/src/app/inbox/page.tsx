@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  IconPlus, IconFilter, IconFileText, IconBuilding, IconUser, IconCalendar,
+  IconPlus, IconFilter, IconFileText, IconBuilding, IconCalendar,
   IconAlertTriangle, IconInbox, IconEye, IconSend, IconPrinter, IconArchive,
   IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip, IconEyeCheck, IconRoute,
 } from '@tabler/icons-react';
@@ -164,9 +164,6 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
 
       <div className="flex flex-col gap-1 text-xs text-slate-600 mb-3">
         <div className="flex items-center gap-1.5"><IconBuilding className="w-3.5 h-3.5 text-slate-400" /><span>من: <span className="text-slate-900">{item.senderEntity?.nameAr}</span></span></div>
-        {item.recipientName && (
-          <div className="flex items-center gap-1.5"><IconUser className="w-3.5 h-3.5 text-slate-400" /><span>إلى: <span className="text-slate-900">{item.recipientName}</span></span></div>
-        )}
         {item.routedTo?.length ? (
           <div className="flex items-center gap-1.5"><IconRoute className="w-3.5 h-3.5 text-emerald-600" /><span>التوجيه: <span className="text-slate-900">{item.routedTo.join('، ')}</span></span></div>
         ) : null}

@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  IconArrowRight, IconInfoCircle, IconCheck, IconX, IconUsers, IconBuilding, IconLock, IconUpload, IconPaperclip,
+  IconArrowRight, IconInfoCircle, IconCheck, IconX, IconUsers, IconLock, IconUpload, IconPaperclip,
 } from '@tabler/icons-react';
 import { incomingApi, referenceApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
@@ -38,8 +38,6 @@ const schema = z
     visibility: z.enum(['public', 'departments', 'private']),
     visibilityDeptIds: z.array(z.string()).optional(),
     receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
-    recipientType: z.enum(['internal', 'external']),
-    recipientName: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.visibility === 'departments' && (!data.visibilityDeptIds || data.visibilityDeptIds.length === 0)) {
@@ -72,7 +70,7 @@ function EditIncomingInner() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onChange',
-    defaultValues: { priority: 'normal', confidentiality: 'normal', visibility: 'public', visibilityDeptIds: [], recipientType: 'internal', senderEntityId: '1' },
+    defaultValues: { priority: 'normal', confidentiality: 'normal', visibility: 'public', visibilityDeptIds: [], senderEntityId: '1' },
   });
 
   // pre-fill once the correspondence is loaded
@@ -90,12 +88,9 @@ function EditIncomingInner() {
       visibility: (data.visibility as any) || 'public',
       visibilityDeptIds: data.visibilityDeptIds || [],
       receivedAt: data.receivedAt ? new Date(data.receivedAt).toISOString().slice(0, 16) : '',
-      recipientType: (data.recipientType as any) || 'internal',
-      recipientName: data.recipientName || '',
     });
   }, [data, reset]);
 
-  const recipientType = watch('recipientType');
 
   const mutation = useMutation({
     mutationFn: async (form: FormData) => {
@@ -111,8 +106,6 @@ function EditIncomingInner() {
         confidentiality: form.confidentiality,
         visibility: form.visibility,
         visibilityDeptIds: form.visibility === 'departments' ? form.visibilityDeptIds : [],
-        recipientType: form.recipientType,
-        recipientName: form.recipientName,
       });
       // upload any newly added attachments
       if (files.length) {
@@ -247,69 +240,6 @@ function EditIncomingInner() {
               <textarea rows={3} className="input" {...register('subject')} />
               {errors.subject && <p className="text-xs text-red-600 mt-1">{errors.subject.message}</p>}
             </div>
-          </div>
-        </div>
-
-        {/* الجهة المرسل إليها */}
-        <div className="card space-y-4">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <IconUsers className="w-4 h-4 text-slate-400" /> الجهة المرسل إليها
-          </h2>
-
-          <div className="grid grid-cols-2 gap-2">
-            <label className={`cursor-pointer border rounded-md p-3 flex items-center gap-2 transition-colors ${
-              recipientType === 'internal' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 hover:bg-slate-50'
-            }`}>
-              <input type="radio" value="internal" className="hidden" {...register('recipientType')}
-                onChange={() => { setValue('recipientType', 'internal'); setValue('recipientName', '', { shouldValidate: true }); }}
-              />
-              <IconBuilding className="w-4 h-4" />
-              <div><div className="text-sm font-medium">الإدارات</div><div className="text-[10px] text-slate-500">إدارات داخل وزارتنا</div></div>
-            </label>
-
-            <label className={`cursor-pointer border rounded-md p-3 flex items-center gap-2 transition-colors ${
-              recipientType === 'external' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 hover:bg-slate-50'
-            }`}>
-              <input type="radio" value="external" className="hidden" {...register('recipientType')}
-                onChange={() => { setValue('recipientType', 'external'); setValue('recipientName', '', { shouldValidate: true }); }}
-              />
-              <IconBuilding className="w-4 h-4" />
-              <div><div className="text-sm font-medium">المكاتب</div><div className="text-[10px] text-slate-500">المكاتب والجهات الخارجية</div></div>
-            </label>
-          </div>
-
-          <div>
-            <label className="label">
-              {recipientType === 'internal' ? 'الإدارة المستلمة' : 'المكتب المستلم'}
-            </label>
-            {recipientType === 'internal' ? (
-              <ManagedSelect
-                value={watch('recipientName') || ''}
-                onChange={(v) => setValue('recipientName', v, { shouldValidate: true })}
-                queryKey={['departments']}
-                fetcher={referenceApi.departments}
-                creator={allowed ? referenceApi.createDepartment : undefined}
-                getValue={(d) => d.name}
-                getLabel={(d) => d.name}
-                placeholder="-- اختر الإدارة --"
-                canCreate={allowed}
-                createLabel="إضافة إدارة جديدة"
-              />
-            ) : (
-              <ManagedSelect
-                value={watch('recipientName') || ''}
-                onChange={(v) => setValue('recipientName', v, { shouldValidate: true })}
-                queryKey={['entities']}
-                fetcher={referenceApi.entities}
-                creator={allowed ? referenceApi.createEntity : undefined}
-                getValue={(e) => e.nameAr}
-                getLabel={(e) => e.nameAr}
-                placeholder="-- اختر المكتب --"
-                canCreate={allowed}
-                createLabel="إضافة مكتب جديد"
-              />
-            )}
-            {errors.recipientName && <p className="text-xs text-red-600 mt-1">{errors.recipientName.message}</p>}
           </div>
         </div>
 

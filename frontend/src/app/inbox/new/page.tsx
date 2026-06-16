@@ -10,7 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   IconArrowRight, IconInfoCircle, IconCheck, IconDeviceFloppy, IconX,
-  IconUpload, IconBuilding, IconUsers,
+  IconUpload, IconUsers,
 } from '@tabler/icons-react';
 import { incomingApi, referenceApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
@@ -38,8 +38,6 @@ const schema = z
     visibility: z.enum(['public', 'departments', 'private']),
     visibilityDeptIds: z.array(z.string()).optional(),
     receivedAt: z.string().min(1, 'تاريخ الاستلام مطلوب'),
-    recipientType: z.enum(['internal', 'external']),
-    recipientName: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.visibility === 'departments' && (!data.visibilityDeptIds || data.visibilityDeptIds.length === 0)) {
@@ -69,11 +67,8 @@ function NewIncomingInner() {
       visibility: 'public',
       visibilityDeptIds: [],
       senderEntityId: '1',
-      recipientType: 'internal',
     },
   });
-
-  const recipientType = watch('recipientType');
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -89,8 +84,6 @@ function NewIncomingInner() {
         confidentiality: data.confidentiality,
         visibility: data.visibility,
         visibilityDeptIds: data.visibility === 'departments' ? data.visibilityDeptIds : [],
-        recipientType: data.recipientType,
-        recipientName: data.recipientName,
       });
 
       // Upload attachments if provided
@@ -225,87 +218,6 @@ function NewIncomingInner() {
               <textarea rows={3} className="input" placeholder="مثال: طلب موافقة على ميزانية الربع الثاني" {...register('subject')} />
               {errors.subject && <p className="text-xs text-red-600 mt-1">{errors.subject.message}</p>}
             </div>
-          </div>
-        </div>
-
-        {/* الجهة المرسل إليها */}
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <IconUsers className="w-4 h-4 text-slate-400" /> الجهة المرسل إليها
-            </h2>
-            <span className="text-xs text-slate-500">اختياري</span>
-          </div>
-          <p className="text-[11px] text-slate-400 -mt-2">
-            يكفي توثيق الرسالة وحفظها؛ ويتم <strong>توجيهها للإدارة المختصة</strong> لاحقاً من المدير عبر «التوجيه».
-          </p>
-
-          {/* اختيار النوع */}
-          <div className="grid grid-cols-2 gap-2">
-            <label className={`cursor-pointer border rounded-md p-3 flex items-center gap-2 transition-colors ${
-              recipientType === 'internal' 
-                ? 'border-brand-500 bg-brand-50 text-brand-700' 
-                : 'border-slate-200 hover:bg-slate-50'
-            }`}>
-              <input type="radio" value="internal" className="hidden" {...register('recipientType')} 
-                onChange={() => { setValue('recipientType', 'internal'); setValue('recipientName', ''); }}
-              />
-              <IconBuilding className="w-4 h-4" />
-              <div>
-                <div className="text-sm font-medium">الإدارات</div>
-                <div className="text-[10px] text-slate-500">إدارات داخل وزارتنا</div>
-              </div>
-            </label>
-
-            <label className={`cursor-pointer border rounded-md p-3 flex items-center gap-2 transition-colors ${
-              recipientType === 'external'
-                ? 'border-brand-500 bg-brand-50 text-brand-700'
-                : 'border-slate-200 hover:bg-slate-50'
-            }`}>
-              <input type="radio" value="external" className="hidden" {...register('recipientType')} 
-                onChange={() => { setValue('recipientType', 'external'); setValue('recipientName', ''); }}
-              />
-              <IconBuilding className="w-4 h-4" />
-              <div>
-                <div className="text-sm font-medium">المكاتب</div>
-                <div className="text-[10px] text-slate-500">المكاتب والجهات الخارجية</div>
-              </div>
-            </label>
-          </div>
-
-          {/* اختيار الجهة */}
-          <div>
-            <label className="label">
-              {recipientType === 'internal' ? 'الإدارة المستلمة' : 'المكتب المستلم'}
-            </label>
-            {recipientType === 'internal' ? (
-              <ManagedSelect
-                value={watch('recipientName') || ''}
-                onChange={(v) => setValue('recipientName', v, { shouldValidate: true })}
-                queryKey={['departments']}
-                fetcher={referenceApi.departments}
-                creator={canManage ? referenceApi.createDepartment : undefined}
-                getValue={(d) => d.name}
-                getLabel={(d) => d.name}
-                placeholder="-- اختر الإدارة --"
-                canCreate={canManage}
-                createLabel="إضافة إدارة جديدة"
-              />
-            ) : (
-              <ManagedSelect
-                value={watch('recipientName') || ''}
-                onChange={(v) => setValue('recipientName', v, { shouldValidate: true })}
-                queryKey={['entities']}
-                fetcher={referenceApi.entities}
-                creator={canManage ? referenceApi.createEntity : undefined}
-                getValue={(e) => e.nameAr}
-                getLabel={(e) => e.nameAr}
-                placeholder="-- اختر المكتب --"
-                canCreate={canManage}
-                createLabel="إضافة مكتب جديد"
-              />
-            )}
-            {errors.recipientName && <p className="text-xs text-red-600 mt-1">{errors.recipientName.message}</p>}
           </div>
         </div>
 
