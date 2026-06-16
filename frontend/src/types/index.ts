@@ -84,6 +84,7 @@ export interface IncomingCorrespondence {
   currentOwner?: { id: string; fullName: string; username: string };
   creator?: { id: string; fullName: string; username: string };
   attachmentCount?: number;
+  viewersCount?: number;
   attachments?: Attachment[];
 }
 

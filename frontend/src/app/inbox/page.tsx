@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   IconPlus, IconFilter, IconFileText, IconBuilding, IconUser, IconCalendar,
   IconAlertTriangle, IconInbox, IconEye, IconSend, IconPrinter, IconArchive,
-  IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip,
+  IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip, IconEyeCheck,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
@@ -177,12 +177,18 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
         </div>
       )}
 
-      <div className="flex gap-1.5 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap items-center">
         <Link href={`/inbox/${item.id}`} className="btn text-xs py-1.5"><IconEye className="w-3.5 h-3.5" /> عرض</Link>
         <button className="btn text-xs py-1.5"><IconArrowBackUp className="w-3.5 h-3.5" /> رد</button>
         <button className="btn text-xs py-1.5"><IconSend className="w-3.5 h-3.5" /> تحويل</button>
         <button className="btn text-xs py-1.5"><IconPrinter className="w-3.5 h-3.5" /> طباعة</button>
         <button className="btn text-xs py-1.5"><IconArchive className="w-3.5 h-3.5" /> أرشفة</button>
+        <span
+          className="text-xs py-1.5 px-2 inline-flex items-center gap-1 text-slate-500"
+          title={`شاهدها ${item.viewersCount ?? 0} شخص`}
+        >
+          <IconEyeCheck className="w-4 h-4 text-emerald-600" /> {item.viewersCount ?? 0}
+        </span>
       </div>
     </div>
   );

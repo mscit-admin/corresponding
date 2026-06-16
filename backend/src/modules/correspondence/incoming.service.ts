@@ -150,11 +150,21 @@ export class IncomingService {
     ) : [];
     
     const countMap = new Map(attachmentCounts.map((a: any) => [a.id.toString(), Number(a.count)]));
+
+    // Get viewer counts (read tracking) for all items
+    const viewCounts = ids.length > 0 ? await this.prisma.incomingView.groupBy({
+      by: ['incomingId'],
+      where: { incomingId: { in: ids } },
+      _count: { id: true },
+    }) : [];
+    const viewMap = new Map(viewCounts.map((v: any) => [v.incomingId.toString(), Number(v._count.id)]));
+
     const dataWithCounts = data.map((d: any) => ({
       ...d,
       attachmentCount: countMap.get(d.id.toString()) || 0,
+      viewersCount: viewMap.get(d.id.toString()) || 0,
     }));
-    
+
     return serializeBigInt({ data: dataWithCounts, total, skip: Number(skip), take: Number(take) });
   }
 
