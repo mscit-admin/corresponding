@@ -183,13 +183,13 @@ function NewIncomingInner() {
 
             <div>
               <label className="label">تاريخ ووقت الاستلام <span className="text-red-500">*</span></label>
-              <input type="datetime-local" className="input" {...register('receivedAt')} />
+              <input type="datetime-local" lang="en-GB" dir="ltr" className="input" {...register('receivedAt')} />
               {errors.receivedAt && <p className="text-xs text-red-600 mt-1">{errors.receivedAt.message}</p>}
             </div>
 
             <div>
               <label className="label">تاريخ المستند</label>
-              <input type="date" className="input" {...register('originalDate')} />
+              <input type="date" lang="en-GB" dir="ltr" className="input" {...register('originalDate')} />
             </div>
 
             <div>
