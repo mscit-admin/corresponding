@@ -16,6 +16,7 @@ import { incomingApi, referenceApi } from '@/lib/api';
 import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
+import { AiSubjectButton } from '@/components/AiSubjectButton';
 import { ManagedSelect } from '@/components/ManagedSelect';
 import { TransactionTypeSelect } from '@/components/TransactionTypeSelect';
 import { DateDMY } from '@/components/DateDMY';
@@ -226,6 +227,10 @@ function NewIncomingInner() {
               <label className="label">الموضوع <span className="text-red-500">*</span></label>
               <textarea rows={3} className="input" placeholder="مثال: طلب موافقة على ميزانية الربع الثاني" {...register('subject')} />
               {errors.subject && <p className="text-xs text-red-600 mt-1">{errors.subject.message}</p>}
+              <AiSubjectButton
+                files={files}
+                onExtracted={(subject) => setValue('subject', subject, { shouldValidate: true })}
+              />
             </div>
           </div>
         </div>

@@ -7,6 +7,10 @@ export default () => ({
   database: {
     url: process.env.DATABASE_URL,
   },
+  ai: {
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.ANTHROPIC_MODEL || 'claude-opus-4-8',
+  },
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
     expiresIn: process.env.JWT_EXPIRES_IN || '8h',
