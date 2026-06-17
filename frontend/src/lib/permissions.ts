@@ -13,6 +13,25 @@ export function canManageReference(roleName?: string): boolean {
   return !!roleName && REFERENCE_ROLES.includes(roleName);
 }
 
+// ---- Security clearance (درجة السرية) — mirror of the backend mapping ----
+const CLEARANCE_BY_ROLE: Record<string, string> = {
+  super_admin: 'top_secret',
+  archive_mgr: 'top_secret',
+  diwan_officer: 'secret',
+  dept_manager: 'secret',
+  employee: 'normal',
+};
+const CONF_RANK: Record<string, number> = { normal: 0, secret: 1, top_secret: 2 };
+
+export function maxClearance(roleName?: string): string {
+  return CLEARANCE_BY_ROLE[roleName || ''] || 'normal';
+}
+
+/** هل يستطيع المستخدم تعيين هذه الدرجة من السرية (حسب تصريح دوره)؟ */
+export function canSetConfidentiality(roleName: string | undefined, level: string): boolean {
+  return (CONF_RANK[level] ?? 0) <= (CONF_RANK[maxClearance(roleName)] ?? 0);
+}
+
 // Roles allowed to route/refer (تهميش) a message to departments.
 export const ROUTING_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
 

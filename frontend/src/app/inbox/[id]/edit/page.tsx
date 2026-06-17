@@ -20,7 +20,7 @@ import { TransactionTypeSelect } from '@/components/TransactionTypeSelect';
 import { DateDMY } from '@/components/DateDMY';
 import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
-import { canEditCorrespondence, canManageReference } from '@/lib/permissions';
+import { canEditCorrespondence, canManageReference, canSetConfidentiality } from '@/lib/permissions';
 import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS } from '@/lib/incoming-constants';
 import { VisibilitySelector } from '@/components/VisibilitySelector';
 
@@ -238,8 +238,11 @@ function EditIncomingInner() {
             <div>
               <label className="label">درجة السرية <span className="text-red-500">*</span></label>
               <select className="input" {...register('confidentiality')}>
-                {CONFIDENTIALITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {CONFIDENTIALITY_OPTIONS.filter((o) => canSetConfidentiality(user?.roleName, o.value)).map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
+              <p className="text-[11px] text-slate-400 mt-1">يقتصر الخيار على درجات السرية المسموح بها لصلاحيتك.</p>
             </div>
 
             <div className="md:col-span-2">

@@ -9,6 +9,27 @@ const MANAGER_ROLES = ['super_admin', 'archive_mgr'];
 // Roles allowed to route/refer (تهميش) correspondence to departments
 const ROUTING_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
 
+// ---- Security clearance (درجة السرية) ----
+// أعلى درجة سرية يستطيع كل دور الاطّلاع عليها / تعيينها. يخضع له الجميع.
+const CLEARANCE_BY_ROLE: Record<string, string> = {
+  super_admin: 'top_secret',
+  archive_mgr: 'top_secret',
+  diwan_officer: 'secret',
+  dept_manager: 'secret',
+  employee: 'normal',
+};
+const CONF_RANK: Record<string, number> = { normal: 0, secret: 1, top_secret: 2 };
+
+// رتبة تصريح المستخدم حسب دوره (الافتراضي: عادي)
+const clearanceRank = (roleName?: string): number =>
+  CONF_RANK[CLEARANCE_BY_ROLE[roleName || ''] ?? 'normal'] ?? 0;
+
+// قائمة درجات السرية المسموح للمستخدم الاطّلاع عليها
+const allowedConfLevels = (roleName?: string): string[] => {
+  const max = clearanceRank(roleName);
+  return Object.keys(CONF_RANK).filter((lvl) => CONF_RANK[lvl] <= max);
+};
+
 // BigInt JSON serializer helper
 const serializeBigInt = (obj: any) => 
   JSON.parse(JSON.stringify(obj, (k, v) => typeof v === 'bigint' ? v.toString() : v));
@@ -19,9 +40,16 @@ export class IncomingService {
   
   constructor(private prisma: PrismaService) {}
 
-  async create(data: any, userId: any, ip?: any) {
+  async create(data: any, user: any, ip?: any) {
+    const userId = user?.id ?? user;
     this.logger.log(`Creating incoming - userId: ${userId}`);
-    
+
+    // لا يجوز تعيين درجة سرية أعلى من تصريح المستخدم
+    const reqConf = data.confidentiality || 'normal';
+    if ((CONF_RANK[reqConf] ?? 0) > clearanceRank(user?.role?.name)) {
+      throw new ForbiddenException('ليس لديك التصريح الكافي لتعيين هذه الدرجة من السرية');
+    }
+
     try {
       const userIdBig = BigInt(userId);
       const senderEntityIdBig = BigInt(data.senderEntityId);
@@ -131,6 +159,8 @@ export class IncomingService {
       if (deptBig) vis.push({ visibility: 'departments', visibilityDepts: { some: { departmentId: deptBig } } });
       and.push({ OR: vis });
     }
+    // Confidentiality clearance filter — applies to EVERYONE (managers included)
+    and.push({ confidentiality: { in: allowedConfLevels(user?.role?.name) } });
     if (and.length) where.AND = and;
 
     const [data, total] = await Promise.all([
@@ -221,6 +251,11 @@ export class IncomingService {
       throw new ForbiddenException('ليس لديك صلاحية مشاهدة هذه المراسلة');
     }
 
+    // ---- Access control by confidentiality clearance (applies to everyone) ----
+    if (clearanceRank(user?.role?.name) < (CONF_RANK[item.confidentiality] ?? 0)) {
+      throw new ForbiddenException('ليس لديك التصريح الأمني الكافي لمشاهدة هذه المراسلة');
+    }
+
     // ---- Record the view (not for the creator) ----
     if (userIdBig != null && !isCreator) {
       try {
@@ -297,6 +332,15 @@ export class IncomingService {
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
     const existing = await this.prisma.incomingCorrespondence.findUnique({ where: { id: idBig } });
     if (!existing) throw new NotFoundException('المراسلة غير موجودة');
+
+    // درجة السرية الحالية يجب ألا تتجاوز تصريح المستخدم، وكذلك الدرجة الجديدة
+    const myRank = clearanceRank(roleName);
+    if (myRank < (CONF_RANK[existing.confidentiality] ?? 0)) {
+      throw new ForbiddenException('ليس لديك التصريح الأمني الكافي لتعديل هذه المراسلة');
+    }
+    if (data.confidentiality !== undefined && (CONF_RANK[data.confidentiality] ?? 0) > myRank) {
+      throw new ForbiddenException('ليس لديك التصريح الكافي لتعيين هذه الدرجة من السرية');
+    }
 
     const updateData: any = {};
     if (data.receivedAt !== undefined) updateData.receivedAt = new Date(data.receivedAt);

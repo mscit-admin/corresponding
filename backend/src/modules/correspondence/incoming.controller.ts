@@ -22,7 +22,7 @@ export class IncomingController {
     @Req() req: Request,
   ) {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
-    return this.incomingService.create(dto, user.id, ip);
+    return this.incomingService.create(dto, user, ip);
   }
 
   @Get()
