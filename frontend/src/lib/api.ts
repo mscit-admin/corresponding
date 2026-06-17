@@ -48,6 +48,31 @@ export const usersApi = {
     api.get<PaginatedResponse<UserDetail>>('/users', { params }).then((r) => r.data),
 };
 
+export interface AiSettings {
+  enabled: boolean;
+  hasKey: boolean;
+  keySource: 'db' | 'env' | 'none';
+  keyMasked: string;
+  keyLocked: boolean;
+  model: string;
+  prompt: string;
+  defaultPrompt: string;
+  availableModels: { id: string; label: string }[];
+}
+
+export const aiSettingsApi = {
+  get: () => api.get<AiSettings>('/ai/settings').then((r) => r.data),
+  update: (data: {
+    enabled?: boolean;
+    model?: string;
+    prompt?: string;
+    apiKey?: string;
+    clearKey?: boolean;
+  }) => api.patch<AiSettings>('/ai/settings', data).then((r) => r.data),
+  test: (apiKey?: string) =>
+    api.post<{ ok: boolean; message: string }>('/ai/settings/test', { apiKey }).then((r) => r.data),
+};
+
 export const incomingApi = {
   list: (params?: { skip?: number; take?: number; status?: string; search?: string; myInbox?: boolean }) =>
     api.get<PaginatedResponse<IncomingCorrespondence>>('/correspondence/incoming', { params }).then((r) => r.data),

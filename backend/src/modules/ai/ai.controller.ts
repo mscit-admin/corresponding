@@ -1,10 +1,21 @@
 import {
-  Controller, Post, Get, UploadedFile, UseInterceptors, BadRequestException,
+  Controller, Post, Patch, Get, Body, Req, UploadedFile, UseInterceptors,
+  BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AiService } from './ai.service';
+
+// الأدمن والأدوار الإشرافية فقط يديرون إعدادات الذكاء الاصطناعي
+const ADMIN_ROLES = ['super_admin', 'archive_mgr'];
+
+function ensureAdmin(req: any) {
+  const roleName = req.user?.role?.name;
+  if (!ADMIN_ROLES.includes(roleName)) {
+    throw new ForbiddenException('ليس لديك صلاحية إدارة إعدادات الذكاء الاصطناعي');
+  }
+}
 
 @ApiTags('AI')
 @ApiBearerAuth()
@@ -15,7 +26,31 @@ export class AiController {
   @Get('status')
   @ApiOperation({ summary: 'هل ميزة الاستخراج بالذكاء الاصطناعي مُفعّلة؟' })
   status() {
-    return { enabled: this.ai.enabled };
+    return this.ai.status();
+  }
+
+  @Get('settings')
+  @ApiOperation({ summary: 'قراءة إعدادات الذكاء الاصطناعي (للأدمن)' })
+  getSettings(@Req() req: any) {
+    ensureAdmin(req);
+    return this.ai.getAdminSettings();
+  }
+
+  @Patch('settings')
+  @ApiOperation({ summary: 'تحديث إعدادات الذكاء الاصطناعي (للأدمن)' })
+  updateSettings(
+    @Req() req: any,
+    @Body() body: { enabled?: boolean; model?: string; prompt?: string; apiKey?: string; clearKey?: boolean },
+  ) {
+    ensureAdmin(req);
+    return this.ai.updateSettings(body || {});
+  }
+
+  @Post('settings/test')
+  @ApiOperation({ summary: 'اختبار الاتصال بـAnthropic (للأدمن)' })
+  testConnection(@Req() req: any, @Body() body: { apiKey?: string }) {
+    ensureAdmin(req);
+    return this.ai.testConnection(body?.apiKey);
   }
 
   @Post('extract-subject')

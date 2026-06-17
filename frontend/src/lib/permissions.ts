@@ -45,3 +45,10 @@ export const DECISION_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
 export function canDecide(roleName?: string): boolean {
   return !!roleName && DECISION_ROLES.includes(roleName);
 }
+
+// Roles allowed to manage AI settings (admin + supervisory).
+export const AI_SETTINGS_ROLES = ['super_admin', 'archive_mgr'];
+
+export function canManageAiSettings(roleName?: string): boolean {
+  return !!roleName && AI_SETTINGS_ROLES.includes(roleName);
+}

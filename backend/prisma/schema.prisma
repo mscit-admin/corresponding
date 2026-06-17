@@ -39,6 +39,15 @@ model Department {
   @@map("departments")
 }
 
+/// مخزن إعدادات النظام (مفتاح/قيمة) — يُستخدم لإعدادات الذكاء الاصطناعي وغيرها.
+model SystemSetting {
+  key       String   @id @db.VarChar(150)
+  value     String?  @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
 model Role {
   id          BigInt   @id @default(autoincrement())
   name        String   @unique @db.VarChar(100)

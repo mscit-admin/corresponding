@@ -5,19 +5,30 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconHome, IconInbox,
-  IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout,
+  IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { canManageAiSettings } from '@/lib/permissions';
 import { NotificationBell } from '@/components/NotificationBell';
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof IconHome;
+  badge?: string;
+  disabled?: boolean;
+  adminOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'الرئيسية', icon: IconHome },
   { href: '/inbox', label: 'صندوق الوارد', icon: IconInbox, badge: '24' },
   { href: '/outgoing', label: 'الصادر', icon: IconSend, disabled: true },
   { href: '/archive', label: 'الأرشيف', icon: IconFileText, disabled: true },
   { href: '/reports', label: 'التقارير', icon: IconChartBar, disabled: true },
   { href: '/users', label: 'المستخدمين', icon: IconUsers, disabled: true },
+  { href: '/admin/ai-settings', label: 'إعدادات الذكاء الاصطناعي', icon: IconSparkles, adminOnly: true },
   { href: '/settings', label: 'الإعدادات', icon: IconSettings, disabled: true },
 ];
 
@@ -89,7 +100,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex">
         <aside className="w-56 bg-white border-l border-slate-200 hidden md:block">
           <nav className="p-3 space-y-1">
-            {navItems.map((item) => {
+            {navItems
+              .filter((item) => !item.adminOnly || canManageAiSettings(user.roleName))
+              .map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               return item.disabled ? (
