@@ -174,6 +174,19 @@ async function main() {
   }
   console.log(`  ✓ ${entityList.length} external entities seeded`);
 
+  // ----- TRANSACTION TYPES -----
+  const transactionTypes = [
+    'كتاب رسمي', 'تعميم', 'طلب', 'شكوى', 'مذكرة', 'تقرير', 'فاكس', 'أخرى',
+  ];
+  for (const name of transactionTypes) {
+    await prisma.transactionType.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+  console.log(`  ✓ ${transactionTypes.length} transaction types seeded`);
+
   console.log('✅ Seed complete');
 }
 

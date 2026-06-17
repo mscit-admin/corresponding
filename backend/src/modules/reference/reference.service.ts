@@ -51,4 +51,62 @@ export class ReferenceService {
     });
     return serializeBigInt(dep);
   }
+
+  // ----- TRANSACTION TYPES (نوع المعاملة) -----
+
+  async transactionTypes() {
+    const items = await this.prisma.transactionType.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    return serializeBigInt(items);
+  }
+
+  async createTransactionType(data: any) {
+    const name = (data?.name || '').trim();
+    if (!name) throw new BadRequestException('اسم نوع المعاملة مطلوب');
+    const existing = await this.prisma.transactionType.findUnique({ where: { name } });
+    if (existing) {
+      // re-activate if it was previously removed
+      if (!existing.isActive) {
+        const revived = await this.prisma.transactionType.update({
+          where: { id: existing.id },
+          data: { isActive: true },
+          select: { id: true, name: true },
+        });
+        return serializeBigInt(revived);
+      }
+      throw new BadRequestException('نوع المعاملة موجود مسبقاً');
+    }
+    const created = await this.prisma.transactionType.create({
+      data: { name },
+      select: { id: true, name: true },
+    });
+    return serializeBigInt(created);
+  }
+
+  async updateTransactionType(id: string, data: any) {
+    const name = (data?.name || '').trim();
+    if (!name) throw new BadRequestException('اسم نوع المعاملة مطلوب');
+    const dup = await this.prisma.transactionType.findUnique({ where: { name } });
+    if (dup && dup.id !== BigInt(id)) {
+      throw new BadRequestException('يوجد نوع معاملة آخر بنفس الاسم');
+    }
+    const updated = await this.prisma.transactionType.update({
+      where: { id: BigInt(id) },
+      data: { name },
+      select: { id: true, name: true },
+    });
+    return serializeBigInt(updated);
+  }
+
+  async deleteTransactionType(id: string) {
+    // soft delete to preserve the type label on historical correspondences
+    await this.prisma.transactionType.update({
+      where: { id: BigInt(id) },
+      data: { isActive: false },
+    });
+    return { success: true };
+  }
 }

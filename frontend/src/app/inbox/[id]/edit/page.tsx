@@ -16,10 +16,11 @@ import { uploadAttachments } from '@/lib/uploads';
 import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
 import { ManagedSelect } from '@/components/ManagedSelect';
+import { TransactionTypeSelect } from '@/components/TransactionTypeSelect';
 import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
-import { canEditCorrespondence } from '@/lib/permissions';
-import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS, TRANSACTION_TYPES } from '@/lib/incoming-constants';
+import { canEditCorrespondence, canManageReference } from '@/lib/permissions';
+import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS } from '@/lib/incoming-constants';
 import { VisibilitySelector } from '@/components/VisibilitySelector';
 
 const schema = z
@@ -29,7 +30,7 @@ const schema = z
     senderRefNo: z
       .string()
       .optional()
-      .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم المرسل يجب أن يكون أرقاماً فقط'),
+      .refine((v) => !v || /^[0-9]+$/.test(v), 'رقم الوارد يجب أن يكون أرقاماً فقط'),
     originalDate: z.string().optional(),
     subject: z.string().min(3, 'الموضوع يجب أن يكون 3 أحرف على الأقل'),
     transactionType: z.string().optional(),
@@ -54,6 +55,7 @@ function EditIncomingInner() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const allowed = canEditCorrespondence(user?.roleName);
+  const canManageTypes = canManageReference(user?.roleName);
   const [files, setFiles] = useState<File[]>([]);
   const addFiles = (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]);
   const removeFile = (index: number) => setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -165,7 +167,7 @@ function EditIncomingInner() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label">رقم القيد</label>
+              <label className="label">الرقم الإشاري الصادر من الجهة المرسلة</label>
               <input type="text" className="input font-mono" placeholder="مثال: 2026/145" {...register('registryNo')} />
             </div>
 
@@ -187,7 +189,7 @@ function EditIncomingInner() {
             </div>
 
             <div>
-              <label className="label">رقم المرسل (أرقام فقط)</label>
+              <label className="label">رقم الوارد للجهة المرسل إليها (أرقام فقط)</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -215,10 +217,11 @@ function EditIncomingInner() {
 
             <div>
               <label className="label">نوع المعاملة</label>
-              <select className="input" {...register('transactionType')}>
-                <option value="">-- اختر --</option>
-                {TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <TransactionTypeSelect
+                value={watch('transactionType') || ''}
+                onChange={(v) => setValue('transactionType', v, { shouldValidate: true })}
+                canManage={canManageTypes}
+              />
             </div>
 
             <div>

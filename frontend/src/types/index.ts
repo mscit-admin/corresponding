@@ -67,6 +67,11 @@ export interface Department {
   code: string;
 }
 
+export interface TransactionType {
+  id: string;
+  name: string;
+}
+
 export interface IncomingCorrespondence {
   id: string;
   serialNo: string;

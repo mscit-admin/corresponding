@@ -35,7 +35,7 @@ api.interceptors.response.use(
 // API Endpoints
 // =========================
 
-import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department, AttachmentView } from '@/types';
+import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department, AttachmentView, TransactionType } from '@/types';
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -98,6 +98,14 @@ export const referenceApi = {
   createEntity: (nameAr: string) => api.post<ExternalEntity>('/entities', { nameAr }).then((r) => r.data),
   departments: () => api.get<Department[]>('/departments').then((r) => r.data),
   createDepartment: (name: string) => api.post<Department>('/departments', { name }).then((r) => r.data),
+};
+
+export const transactionTypesApi = {
+  list: () => api.get<TransactionType[]>('/transaction-types').then((r) => r.data),
+  create: (name: string) => api.post<TransactionType>('/transaction-types', { name }).then((r) => r.data),
+  update: (id: string, name: string) =>
+    api.patch<TransactionType>(`/transaction-types/${id}`, { name }).then((r) => r.data),
+  remove: (id: string) => api.delete(`/transaction-types/${id}`).then((r) => r.data),
 };
 
 export const attachmentsApi = {

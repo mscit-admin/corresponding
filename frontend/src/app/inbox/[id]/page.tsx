@@ -57,7 +57,7 @@ function CorrespondenceDetailsPageInner() {
           <div class="t">نظام الأرشفة الإلكترونية — وزارة الشؤون الإدارية</div>
           <div class="t" style="margin-top:6px">الرقم الإشاري للمعاملة</div>
           <div class="serial">${esc(data.serialNo)}</div>
-          ${data.registryNo ? `<div class="row"><span class="label">رقم القيد</span><span>${esc(data.registryNo)}</span></div>` : ''}
+          ${data.registryNo ? `<div class="row"><span class="label">الرقم الإشاري الصادر من الجهة المرسلة</span><span>${esc(data.registryNo)}</span></div>` : ''}
           <div class="row"><span class="label">الموضوع</span><span>${esc(data.subject)}</span></div>
           <div class="row"><span class="label">الجهة المرسلة</span><span>${esc(data.senderEntity?.nameAr)}</span></div>
           <div class="row"><span class="label">تاريخ الورود</span><span>${formatDateTimeAr(data.receivedAt)}</span></div>
@@ -94,9 +94,9 @@ function CorrespondenceDetailsPageInner() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs p-3 bg-slate-50 rounded-md">
           <div><span className="text-slate-500">رقم المعاملة:</span> <span className="font-mono font-medium">{data.serialNo}</span></div>
-          {data.registryNo && <div><span className="text-slate-500">رقم القيد:</span> <span className="font-mono font-medium">{data.registryNo}</span></div>}
+          {data.registryNo && <div><span className="text-slate-500">الرقم الإشاري الصادر من الجهة المرسلة:</span> <span className="font-mono font-medium">{data.registryNo}</span></div>}
           <div><span className="text-slate-500">الجهة المرسلة:</span> <span className="font-medium">{data.senderEntity?.nameAr}</span></div>
-          {data.senderRefNo && <div><span className="text-slate-500">رقم المرسل:</span> <span className="font-mono">{data.senderRefNo}</span></div>}
+          {data.senderRefNo && <div><span className="text-slate-500">رقم الوارد للجهة المرسل إليها:</span> <span className="font-mono">{data.senderRefNo}</span></div>}
           {data.transactionType && <div><span className="text-slate-500">نوع المعاملة:</span> <span className="font-medium">{data.transactionType}</span></div>}
           <div><span className="text-slate-500">تاريخ ورودها:</span> <span>{formatDateTimeAr(data.receivedAt)}</span></div>
           {data.originalDate && <div><span className="text-slate-500">تاريخ المستند:</span> <span>{formatDateAr(data.originalDate)}</span></div>}
