@@ -34,37 +34,40 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
-      // Audit failed login attempt
-      await this.prisma.auditLog.create({
+      // Audit failed login attempt (fire-and-forget — don't delay the response)
+      void this.prisma.auditLog
+        .create({
+          data: {
+            userId: user.id,
+            action: 'LOGIN_FAILED',
+            entityType: 'User',
+            entityId: user.id,
+            ipAddress,
+            userAgent,
+          },
+        })
+        .catch((e) => this.logger.warn(`Audit (LOGIN_FAILED) failed: ${e.message}`));
+      throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
+    }
+
+    // Update last login + audit success in the background so the response is
+    // not delayed by extra DB round-trips.
+    void this.prisma.user
+      .update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      .catch((e) => this.logger.warn(`lastLoginAt update failed: ${e.message}`));
+
+    void this.prisma.auditLog
+      .create({
         data: {
           userId: user.id,
-          action: 'LOGIN_FAILED',
+          action: 'LOGIN_SUCCESS',
           entityType: 'User',
           entityId: user.id,
           ipAddress,
           userAgent,
         },
-      });
-      throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
-    }
-
-    // Update last login
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    // Audit successful login
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'LOGIN_SUCCESS',
-        entityType: 'User',
-        entityId: user.id,
-        ipAddress,
-        userAgent,
-      },
-    });
+      })
+      .catch((e) => this.logger.warn(`Audit (LOGIN_SUCCESS) failed: ${e.message}`));
 
     const accessToken = await this.jwt.signAsync({
       sub: user.id.toString(),
@@ -79,6 +82,7 @@ export class AuthService {
         fullName: user.fullName,
         email: user.email,
         role: user.role.nameAr,
+        roleName: user.role.name,
         department: user.department.name,
       },
     };

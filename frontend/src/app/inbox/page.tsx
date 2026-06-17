@@ -1,12 +1,13 @@
 'use client';
 
 import { AuthLayout } from '@/components/layout/AuthLayout';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
-  IconPlus, IconFilter, IconFileText, IconBuilding, IconUser, IconCalendar,
+  IconPlus, IconFilter, IconFileText, IconBuilding, IconCalendar,
   IconAlertTriangle, IconInbox, IconEye, IconSend, IconPrinter, IconArchive,
-  IconArrowBackUp, IconCheck,
+  IconArrowBackUp, IconCheck, IconSearch, IconX, IconPaperclip, IconEyeCheck, IconRoute,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
@@ -16,6 +17,7 @@ import type { IncomingCorrespondence } from '@/types';
 
 const priorityLabels: Record<string, { text: string; class: string }> = {
   urgent: { text: 'عاجل', class: 'badge-warning' },
+  immediate: { text: 'فوري', class: 'badge-warning' },
   top_secret: { text: 'سري', class: 'badge-danger' },
   normal: { text: 'عادي', class: 'badge-secondary' },
 };
@@ -29,11 +31,26 @@ const statusLabels: Record<string, { text: string; class: string }> = {
 };
 
 function InboxPageInner() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams.get('q') || '';
   const [filter, setFilter] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState(initialQ);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQ);
+
+  // keep the box in sync with the header search (?q= in the URL)
+  useEffect(() => {
+    setSearch(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  // debounce the search input so we don't query on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['incoming', { filter }],
-    queryFn: () => incomingApi.list({ take: 20, status: filter as any }),
+    queryKey: ['incoming', { filter, search: debouncedSearch }],
+    queryFn: () => incomingApi.list({ take: 50, status: filter as any, search: debouncedSearch || undefined }),
   });
 
   return (
@@ -46,6 +63,27 @@ function InboxPageInner() {
         <Link href="/inbox/new" className="btn-primary">
           <IconPlus className="w-4 h-4" /> تسجيل وارد جديد
         </Link>
+      </div>
+
+      {/* Search box */}
+      <div className="relative">
+        <IconSearch className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="ابحث بالموضوع، الرقم التسلسلي، الجهة المرسلة، أو المرسل إليها..."
+          className="input pr-10 pl-10"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            aria-label="مسح البحث"
+          >
+            <IconX className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -67,7 +105,18 @@ function InboxPageInner() {
         <div className="text-center py-10 text-slate-500">جارٍ تحميل المراسلات...</div>
       )}
 
-      {data && data.data.length === 0 && (
+      {data && data.data.length === 0 && debouncedSearch && (
+        <div className="card text-center py-16">
+          <IconSearch className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+          <h3 className="text-base font-medium text-slate-900">لا توجد نتائج</h3>
+          <p className="text-sm text-slate-500 mt-1">لم نجد مراسلات تطابق «{debouncedSearch}»</p>
+          <button onClick={() => setSearch('')} className="btn mt-4 inline-flex text-sm">
+            <IconX className="w-4 h-4" /> مسح البحث
+          </button>
+        </div>
+      )}
+
+      {data && data.data.length === 0 && !debouncedSearch && (
         <div className="card text-center py-16">
           <IconInbox className="w-12 h-12 mx-auto text-slate-300 mb-3" />
           <h3 className="text-base font-medium text-slate-900">لا توجد مراسلات</h3>
@@ -88,8 +137,8 @@ function InboxPageInner() {
 }
 
 function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
-  const priority = priorityLabels[item.priority];
-  const status = statusLabels[item.status];
+  const priority = priorityLabels[item.priority] || priorityLabels.normal;
+  const status = statusLabels[item.status] || statusLabels.new;
 
   return (
     <div className="card hover:border-slate-300 transition-colors">
@@ -100,19 +149,24 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
           </span>
           {item.priority !== 'normal' && <span className={priority.class}>{priority.text}</span>}
           <span className={status.class}>{status.text}</span>
+          {!!item.attachmentCount && (
+            <span className="badge-secondary inline-flex items-center gap-1" title="يوجد مستند مرفق">
+              <IconPaperclip className="w-3 h-3" /> {item.attachmentCount}
+            </span>
+          )}
         </div>
         <span className="text-xs text-slate-400">{timeAgoAr(item.receivedAt)}</span>
       </div>
 
-      <Link href={`/inbox/${item.id}`} className="block hover:text-brand-700 transition-colors">
-        <h3 className="text-sm font-medium text-slate-900 mb-2 leading-relaxed">{item.subject}</h3>
+      <Link href={`/inbox/${item.id}`} className="block hover:text-brand-700 transition-colors" title="اضغط لعرض المراسلة والمستند">
+        <h3 className="text-sm font-medium text-slate-900 mb-2 leading-relaxed hover:underline">{item.subject}</h3>
       </Link>
 
       <div className="flex flex-col gap-1 text-xs text-slate-600 mb-3">
         <div className="flex items-center gap-1.5"><IconBuilding className="w-3.5 h-3.5 text-slate-400" /><span>من: <span className="text-slate-900">{item.senderEntity?.nameAr}</span></span></div>
-        {item.recipientName && (
-          <div className="flex items-center gap-1.5"><IconUser className="w-3.5 h-3.5 text-slate-400" /><span>إلى: <span className="text-slate-900">{item.recipientName}</span></span></div>
-        )}
+        {item.routedTo?.length ? (
+          <div className="flex items-center gap-1.5"><IconRoute className="w-3.5 h-3.5 text-emerald-600" /><span>التوجيه: <span className="text-slate-900">{item.routedTo.join('، ')}</span></span></div>
+        ) : null}
         <div className="flex items-center gap-1.5"><IconCalendar className="w-3.5 h-3.5 text-slate-400" /><span>وردت: {formatDateAr(item.receivedAt)}</span></div>
       </div>
 
@@ -123,12 +177,18 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
         </div>
       )}
 
-      <div className="flex gap-1.5 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap items-center">
         <Link href={`/inbox/${item.id}`} className="btn text-xs py-1.5"><IconEye className="w-3.5 h-3.5" /> عرض</Link>
         <button className="btn text-xs py-1.5"><IconArrowBackUp className="w-3.5 h-3.5" /> رد</button>
         <button className="btn text-xs py-1.5"><IconSend className="w-3.5 h-3.5" /> تحويل</button>
         <button className="btn text-xs py-1.5"><IconPrinter className="w-3.5 h-3.5" /> طباعة</button>
         <button className="btn text-xs py-1.5"><IconArchive className="w-3.5 h-3.5" /> أرشفة</button>
+        <span
+          className="text-xs py-1.5 px-2 inline-flex items-center gap-1 text-slate-500"
+          title={`شاهدها ${item.viewersCount ?? 0} شخص`}
+        >
+          <IconEyeCheck className="w-4 h-4 text-emerald-600" /> {item.viewersCount ?? 0}
+        </span>
       </div>
     </div>
   );
@@ -137,7 +197,9 @@ function CorrespondenceCard({ item }: { item: IncomingCorrespondence }) {
 export default function InboxPage() {
   return (
     <AuthLayout>
-      <InboxPageInner />
+      <Suspense fallback={<div className="text-center py-10 text-slate-500">جارٍ التحميل...</div>}>
+        <InboxPageInner />
+      </Suspense>
     </AuthLayout>
   );
 }

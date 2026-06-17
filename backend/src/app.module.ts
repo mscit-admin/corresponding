@@ -6,6 +6,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CorrespondenceModule } from './modules/correspondence/correspondence.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
+import { ReferenceModule } from './modules/reference/reference.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AiModule } from './modules/ai/ai.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -28,6 +31,9 @@ import configuration from './config/configuration';
     UsersModule,
     CorrespondenceModule,
     AttachmentsModule,
+    ReferenceModule,
+    NotificationsModule,
+    AiModule,
   ],
 })
 export class AppModule {}

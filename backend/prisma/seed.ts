@@ -82,16 +82,43 @@ async function main() {
       update: {},
       create: { name: 'الديوان', code: 'MOA-DIW', parentId: ministry.id, level: 2 },
     }),
+    prisma.department.upsert({
+      where: { code: 'MOA-MIN' },
+      update: {},
+      create: { name: 'مكتب الوزير', code: 'MOA-MIN', parentId: ministry.id, level: 2 },
+    }),
+    prisma.department.upsert({
+      where: { code: 'MOA-DEP' },
+      update: {},
+      create: { name: 'مكتب الوكيل', code: 'MOA-DEP', parentId: ministry.id, level: 2 },
+    }),
+    prisma.department.upsert({
+      where: { code: 'MOA-LEG' },
+      update: {},
+      create: { name: 'إدارة الشؤون القانونية', code: 'MOA-LEG', parentId: ministry.id, level: 2 },
+    }),
+    prisma.department.upsert({
+      where: { code: 'MOA-IT' },
+      update: {},
+      create: { name: 'إدارة تقنية المعلومات', code: 'MOA-IT', parentId: ministry.id, level: 2 },
+    }),
   ]);
   console.log(`  ✓ ${departments.length + 1} departments created`);
 
   // ----- ADMIN USER -----
   const adminRole = roles.find((r) => r.name === 'super_admin')!;
-  const passwordHash = await bcrypt.hash('Admin@1234', 12);
+  // 10 rounds keeps login fast on modest servers while staying secure.
+  // Configurable via BCRYPT_ROUNDS. update re-hashes existing users so the
+  // cost change applies on the next seed run too.
+  const rounds = Number(process.env.BCRYPT_ROUNDS) || 10;
+  // Set ADMIN_PASSWORD in the environment to use a secret admin password.
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@1234';
+  const passwordHash = await bcrypt.hash(adminPassword, rounds);
+  const demoHash = await bcrypt.hash('Admin@1234', rounds);
 
   await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {},
+    update: { passwordHash },
     create: {
       username: 'admin',
       email: 'admin@gsdms.local',
@@ -104,17 +131,17 @@ async function main() {
       isActive: true,
     },
   });
-  console.log(`  ✓ Admin user created (username: admin, password: Admin@1234)`);
+  console.log(`  ✓ Admin user ready (username: admin)`);
 
-  // ----- SAMPLE EMPLOYEE -----
+  // ----- SAMPLE EMPLOYEE (demo account, password: Admin@1234) -----
   const empRole = roles.find((r) => r.name === 'dept_manager')!;
   await prisma.user.upsert({
     where: { username: 'ahmed.mohamed' },
-    update: {},
+    update: { passwordHash: demoHash },
     create: {
       username: 'ahmed.mohamed',
       email: 'ahmed.mohamed@gsdms.local',
-      passwordHash,
+      passwordHash: demoHash,
       fullName: 'Ahmed Mohamed',
       fullNameAr: 'أحمد محمد',
       jobTitle: 'مدير الميزانية',
@@ -126,29 +153,39 @@ async function main() {
   console.log(`  ✓ Sample employee created (username: ahmed.mohamed, password: Admin@1234)`);
 
   // ----- EXTERNAL ENTITIES -----
-  await Promise.all([
-    prisma.externalEntity.upsert({
-      where: { id: BigInt(1) },
+  const entityList = [
+    { id: 1, name: 'Ministry of Finance', nameAr: 'وزارة المالية' },
+    { id: 2, name: 'Prime Minister Office', nameAr: 'ديوان رئاسة الوزراء' },
+    { id: 3, name: 'Ministry of Justice', nameAr: 'وزارة العدل' },
+    { id: 4, name: 'Ministry of Interior', nameAr: 'وزارة الداخلية' },
+    { id: 5, name: 'Ministry of Foreign Affairs', nameAr: 'وزارة الخارجية' },
+    { id: 6, name: 'Ministry of Planning', nameAr: 'وزارة التخطيط' },
+    { id: 7, name: 'Central Bank of Libya', nameAr: 'مصرف ليبيا المركزي' },
+    { id: 8, name: 'Audit Bureau', nameAr: 'ديوان المحاسبة' },
+    { id: 9, name: 'Administrative Control Authority', nameAr: 'هيئة الرقابة الإدارية' },
+    { id: 10, name: 'Ministry of Health', nameAr: 'وزارة الصحة' },
+  ];
+  for (const e of entityList) {
+    await prisma.externalEntity.upsert({
+      where: { id: BigInt(e.id) },
+      update: { name: e.name, nameAr: e.nameAr },
+      create: { id: BigInt(e.id), name: e.name, nameAr: e.nameAr, type: EntityType.government },
+    });
+  }
+  console.log(`  ✓ ${entityList.length} external entities seeded`);
+
+  // ----- TRANSACTION TYPES -----
+  const transactionTypes = [
+    'كتاب رسمي', 'تعميم', 'طلب', 'شكوى', 'مذكرة', 'تقرير', 'فاكس', 'أخرى',
+  ];
+  for (const name of transactionTypes) {
+    await prisma.transactionType.upsert({
+      where: { name },
       update: {},
-      create: {
-        id: BigInt(1),
-        name: 'Ministry of Finance',
-        nameAr: 'وزارة المالية',
-        type: EntityType.government,
-      },
-    }),
-    prisma.externalEntity.upsert({
-      where: { id: BigInt(2) },
-      update: {},
-      create: {
-        id: BigInt(2),
-        name: 'Prime Minister Office',
-        nameAr: 'ديوان رئاسة الوزراء',
-        type: EntityType.government,
-      },
-    }),
-  ]);
-  console.log('  ✓ External entities seeded');
+      create: { name },
+    });
+  }
+  console.log(`  ✓ ${transactionTypes.length} transaction types seeded`);
 
   console.log('✅ Seed complete');
 }

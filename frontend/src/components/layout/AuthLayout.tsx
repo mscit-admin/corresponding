@@ -1,22 +1,34 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  IconArchive, IconSearch, IconBell, IconHome, IconInbox,
-  IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout,
+  IconArchive, IconSearch, IconHome, IconInbox,
+  IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { canManageAiSettings } from '@/lib/permissions';
+import { NotificationBell } from '@/components/NotificationBell';
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof IconHome;
+  badge?: string;
+  disabled?: boolean;
+  adminOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'الرئيسية', icon: IconHome },
   { href: '/inbox', label: 'صندوق الوارد', icon: IconInbox, badge: '24' },
   { href: '/outgoing', label: 'الصادر', icon: IconSend, disabled: true },
   { href: '/archive', label: 'الأرشيف', icon: IconFileText, disabled: true },
   { href: '/reports', label: 'التقارير', icon: IconChartBar, disabled: true },
   { href: '/users', label: 'المستخدمين', icon: IconUsers, disabled: true },
+  { href: '/admin/ai-settings', label: 'إعدادات الذكاء الاصطناعي', icon: IconSparkles, adminOnly: true },
   { href: '/settings', label: 'الإعدادات', icon: IconSettings, disabled: true },
 ];
 
@@ -24,6 +36,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { token, user, logout } = useAuthStore();
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!token) router.push('/login');
@@ -50,16 +63,24 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="flex-1 max-w-md relative hidden md:block">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              router.push(`/inbox?q=${encodeURIComponent(search.trim())}`);
+            }}
+            className="flex-1 max-w-md relative hidden md:block"
+          >
             <IconSearch className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input className="input pr-10" placeholder="ابحث برقم المراسلة، الموضوع، أو الجهة..." />
-          </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input pr-10"
+              placeholder="ابحث برقم المراسلة، الموضوع، أو الجهة..."
+            />
+          </form>
 
           <div className="flex items-center gap-3 shrink-0">
-            <button className="relative p-2 rounded-md hover:bg-slate-100" aria-label="إشعارات">
-              <IconBell className="w-5 h-5 text-slate-600" />
-              <span className="absolute -top-0.5 -left-0.5 bg-red-500 text-white text-[9px] px-1.5 rounded-full font-medium">5</span>
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">
                 {user.fullName.slice(0, 2)}
@@ -79,7 +100,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex">
         <aside className="w-56 bg-white border-l border-slate-200 hidden md:block">
           <nav className="p-3 space-y-1">
-            {navItems.map((item) => {
+            {navItems
+              .filter((item) => !item.adminOnly || canManageAiSettings(user.roleName))
+              .map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               return item.disabled ? (

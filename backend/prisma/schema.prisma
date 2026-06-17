@@ -39,6 +39,15 @@ model Department {
   @@map("departments")
 }
 
+/// مخزن إعدادات النظام (مفتاح/قيمة) — يُستخدم لإعدادات الذكاء الاصطناعي وغيرها.
+model SystemSetting {
+  key       String   @id @db.VarChar(150)
+  value     String?  @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
 model Role {
   id          BigInt   @id @default(autoincrement())
   name        String   @unique @db.VarChar(100)
@@ -106,6 +115,10 @@ model User {
   managedDepartments    Department[]              @relation("DepartmentManager")
   incomingCreated       IncomingCorrespondence[]  @relation("IncomingCreatedBy")
   incomingOwned         IncomingCorrespondence[]  @relation("IncomingOwner")
+  incomingViews         IncomingView[]            @relation("IncomingViewUser")
+  attachmentViews       AttachmentView[]          @relation("AttachmentViewUser")
+  incomingRoutings      IncomingRouting[]         @relation("IncomingRoutedBy")
+  incomingActions       IncomingAction[]          @relation("IncomingActionActor")
   outgoingCreated       OutgoingCorrespondence[]  @relation("OutgoingCreatedBy")
   outgoingApproved      OutgoingCorrespondence[]  @relation("OutgoingApprovedBy")
   outgoingOwned         OutgoingCorrespondence[]  @relation("OutgoingOwner")
@@ -141,7 +154,20 @@ enum EntityType {
 enum Priority {
   normal
   urgent
+  immediate
   top_secret
+}
+
+enum Confidentiality {
+  normal
+  secret
+  top_secret
+}
+
+enum Visibility {
+  public
+  departments
+  private
 }
 
 enum CorrespondenceType {
@@ -153,9 +179,25 @@ enum CorrespondenceType {
 enum IncomingStatus {
   new
   in_progress
+  returned
+  approved
+  rejected
   responded
   closed
   archived
+}
+
+// أنواع إجراءات إدارة المعاملة (سجل الحركة / Timeline)
+enum IncomingActionType {
+  open      // فتح المعاملة
+  refer     // إحالة / تهميش
+  approve   // اعتماد
+  reject    // رفض
+  return    // إعادة
+  note      // إضافة ملاحظة
+  print     // طباعة
+  close     // إغلاق
+  archive   // أرشفة
 }
 
 enum OutgoingStatus {
@@ -218,6 +260,7 @@ model Category {
 model IncomingCorrespondence {
   id                BigInt         @id @default(autoincrement())
   serialNo          String         @unique @map("serial_no") @db.VarChar(50)
+  registryNo        String?        @map("registry_no") @db.VarChar(50)
   receivedAt        DateTime       @map("received_at")
   senderEntityId   BigInt         @map("sender_entity_id")
   senderRefNo       String?        @map("sender_ref_no") @db.VarChar(100)
@@ -225,7 +268,10 @@ model IncomingCorrespondence {
   recipientName     String?        @map("recipient_name") @db.VarChar(255)
   originalDate      DateTime?      @map("original_date") @db.Date
   subject           String         @db.Text
+  transactionType   String?        @map("transaction_type") @db.VarChar(100)
   priority          Priority       @default(normal)
+  confidentiality   Confidentiality @default(normal)
+  visibility        Visibility     @default(public)
   categoryId        BigInt?        @map("category_id")
   currentOwnerId    BigInt?        @map("current_owner_id")
   status            IncomingStatus @default(new)
@@ -239,6 +285,10 @@ model IncomingCorrespondence {
   currentOwner  User?                    @relation("IncomingOwner", fields: [currentOwnerId], references: [id])
   creator       User                     @relation("IncomingCreatedBy", fields: [createdBy], references: [id])
   outgoingReply OutgoingCorrespondence[]
+  visibilityDepts IncomingVisibilityDept[]
+  views           IncomingView[]
+  routings        IncomingRouting[]
+  actions         IncomingAction[]
 
   @@index([serialNo])
   @@index([receivedAt])
@@ -246,6 +296,68 @@ model IncomingCorrespondence {
   @@index([currentOwnerId])
   @@index([priority])
   @@map("incoming_correspondence")
+}
+
+model IncomingVisibilityDept {
+  id           BigInt @id @default(autoincrement())
+  incomingId   BigInt @map("incoming_id")
+  departmentId BigInt @map("department_id")
+
+  incoming IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+
+  @@unique([incomingId, departmentId])
+  @@index([departmentId])
+  @@map("incoming_visibility_depts")
+}
+
+model IncomingView {
+  id            BigInt   @id @default(autoincrement())
+  incomingId    BigInt   @map("incoming_id")
+  userId        BigInt   @map("user_id")
+  firstViewedAt DateTime @default(now()) @map("first_viewed_at")
+  lastViewedAt  DateTime @default(now()) @updatedAt @map("last_viewed_at")
+  viewCount     Int      @default(1) @map("view_count")
+
+  incoming IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+  user     User                   @relation("IncomingViewUser", fields: [userId], references: [id])
+
+  @@unique([incomingId, userId])
+  @@index([incomingId])
+  @@map("incoming_views")
+}
+
+model IncomingRouting {
+  id           BigInt   @id @default(autoincrement())
+  incomingId   BigInt   @map("incoming_id")
+  departmentId BigInt   @map("department_id")
+  note         String?  @db.Text
+  routedBy     BigInt   @map("routed_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  incoming     IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+  routedByUser User                   @relation("IncomingRoutedBy", fields: [routedBy], references: [id])
+
+  @@index([incomingId])
+  @@index([departmentId])
+  @@map("incoming_routings")
+}
+
+// سجل حركة المعاملة (Timeline) — كل إجراء يُوثَّق: مَن، متى، وماذا كتب
+model IncomingAction {
+  id         BigInt             @id @default(autoincrement())
+  incomingId BigInt             @map("incoming_id")
+  actorId    BigInt             @map("actor_id")
+  action     IncomingActionType
+  note       String?            @db.Text
+  fromStatus String?            @map("from_status") @db.VarChar(20)
+  toStatus   String?            @map("to_status") @db.VarChar(20)
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  incoming IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+  actor    User                   @relation("IncomingActionActor", fields: [actorId], references: [id])
+
+  @@index([incomingId, createdAt])
+  @@map("incoming_actions")
 }
 
 model OutgoingCorrespondence {
@@ -296,11 +408,38 @@ model Attachment {
   uploadedBy          BigInt             @map("uploaded_by")
   uploadedAt          DateTime           @default(now()) @map("uploaded_at")
 
-  uploader User @relation(fields: [uploadedBy], references: [id])
+  uploader User             @relation(fields: [uploadedBy], references: [id])
+  views    AttachmentView[]
 
   @@index([correspondenceType, correspondenceId])
   @@index([ocrStatus])
   @@map("attachments")
+}
+
+model AttachmentView {
+  id            BigInt   @id @default(autoincrement())
+  attachmentId  BigInt   @map("attachment_id")
+  userId        BigInt   @map("user_id")
+  firstViewedAt DateTime @default(now()) @map("first_viewed_at")
+  lastViewedAt  DateTime @default(now()) @updatedAt @map("last_viewed_at")
+  viewCount     Int      @default(1) @map("view_count")
+
+  attachment Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  user       User       @relation("AttachmentViewUser", fields: [userId], references: [id])
+
+  @@unique([attachmentId, userId])
+  @@index([attachmentId])
+  @@map("attachment_views")
+}
+
+model TransactionType {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("transaction_types")
 }
 
 // =====================================================================

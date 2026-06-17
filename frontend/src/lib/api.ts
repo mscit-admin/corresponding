@@ -35,7 +35,7 @@ api.interceptors.response.use(
 // API Endpoints
 // =========================
 
-import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse } from '@/types';
+import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department, AttachmentView, TransactionType, AppNotification } from '@/types';
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -48,19 +48,135 @@ export const usersApi = {
     api.get<PaginatedResponse<UserDetail>>('/users', { params }).then((r) => r.data),
 };
 
+export type AiProviderKind = 'anthropic' | 'openai';
+
+export interface AiProvider {
+  id: string;
+  name: string;
+  kind: AiProviderKind;
+  baseUrl: string;
+  models: string[];
+  defaultModel: string;
+  enabled: boolean;
+  locked: boolean;
+  keyMasked: string;
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  prompt: string;
+  defaultPrompt: string;
+  defaultProviderId: string | null;
+  providers: AiProvider[];
+  modelSuggestions: Record<AiProviderKind, { id: string; label: string }[]>;
+}
+
+export interface AiProviderInput {
+  name: string;
+  kind: AiProviderKind;
+  baseUrl?: string;
+  apiKey?: string;
+  models: string[];
+  defaultModel: string;
+  enabled?: boolean;
+}
+
+export const aiSettingsApi = {
+  get: () => api.get<AiSettings>('/ai/settings').then((r) => r.data),
+  update: (data: { enabled?: boolean; prompt?: string; defaultProviderId?: string }) =>
+    api.patch<AiSettings>('/ai/settings', data).then((r) => r.data),
+  createProvider: (data: AiProviderInput) =>
+    api.post<AiSettings>('/ai/providers', data).then((r) => r.data),
+  updateProvider: (id: string, data: Partial<AiProviderInput>) =>
+    api.patch<AiSettings>(`/ai/providers/${id}`, data).then((r) => r.data),
+  deleteProvider: (id: string) =>
+    api.delete<AiSettings>(`/ai/providers/${id}`).then((r) => r.data),
+  test: (id: string, data: { kind?: AiProviderKind; baseUrl?: string; apiKey?: string; model?: string }) =>
+    api.post<{ ok: boolean; message: string }>(`/ai/providers/${id}/test`, data).then((r) => r.data),
+};
+
 export const incomingApi = {
   list: (params?: { skip?: number; take?: number; status?: string; search?: string; myInbox?: boolean }) =>
     api.get<PaginatedResponse<IncomingCorrespondence>>('/correspondence/incoming', { params }).then((r) => r.data),
   getById: (id: string) =>
     api.get<IncomingCorrespondence>(`/correspondence/incoming/${id}`).then((r) => r.data),
+  update: (
+    id: string,
+    data: {
+      receivedAt?: string;
+      senderEntityId?: string;
+      subject?: string;
+      priority?: string;
+      confidentiality?: string;
+      senderRefNo?: string;
+      registryNo?: string;
+      originalDate?: string;
+      transactionType?: string;
+      recipientType?: 'internal' | 'external';
+      recipientName?: string;
+      status?: string;
+      currentOwnerId?: string;
+      visibility?: string;
+      visibilityDeptIds?: string[];
+    },
+  ) => api.patch<IncomingCorrespondence>(`/correspondence/incoming/${id}`, data).then((r) => r.data),
+  route: (id: string, data: { departmentIds: string[]; note?: string }) =>
+    api.post<IncomingCorrespondence>(`/correspondence/incoming/${id}/route`, data).then((r) => r.data),
+  // إجراءات إدارة المعاملة: approve | reject | return | note | print | close | archive
+  act: (id: string, action: string, note?: string) =>
+    api
+      .post<IncomingCorrespondence>(`/correspondence/incoming/${id}/${action}`, { note })
+      .then((r) => r.data),
   create: (data: {
     receivedAt: string;
     senderEntityId: string;
     subject: string;
     priority?: string;
+    confidentiality?: string;
     senderRefNo?: string;
+    registryNo?: string;
+    originalDate?: string;
+    transactionType?: string;
     recipientType?: 'internal' | 'external';
     recipientName?: string;
+    visibility?: string;
+    visibilityDeptIds?: string[];
   }) =>
     api.post<IncomingCorrespondence>('/correspondence/incoming', data).then((r) => r.data),
+};
+
+export const notificationsApi = {
+  list: (unreadOnly?: boolean) =>
+    api
+      .get<AppNotification[]>('/notifications', { params: unreadOnly ? { unread: 'true' } : {} })
+      .then((r) => r.data),
+  unreadCount: () =>
+    api.get<{ count: number }>('/notifications/unread-count').then((r) => r.data.count),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`).then((r) => r.data),
+  markAllRead: () => api.patch('/notifications/read-all').then((r) => r.data),
+};
+
+export const referenceApi = {
+  entities: () => api.get<ExternalEntity[]>('/entities').then((r) => r.data),
+  createEntity: (nameAr: string) => api.post<ExternalEntity>('/entities', { nameAr }).then((r) => r.data),
+  departments: () => api.get<Department[]>('/departments').then((r) => r.data),
+  createDepartment: (name: string) => api.post<Department>('/departments', { name }).then((r) => r.data),
+};
+
+export const transactionTypesApi = {
+  list: () => api.get<TransactionType[]>('/transaction-types').then((r) => r.data),
+  create: (name: string) => api.post<TransactionType>('/transaction-types', { name }).then((r) => r.data),
+  update: (id: string, name: string) =>
+    api.patch<TransactionType>(`/transaction-types/${id}`, { name }).then((r) => r.data),
+  remove: (id: string) => api.delete(`/transaction-types/${id}`).then((r) => r.data),
+};
+
+export const attachmentsApi = {
+  // Fetch an attachment as a Blob (sends the JWT via the axios interceptor)
+  download: (id: string) =>
+    api.get(`/attachments/${id}/download`, { responseType: 'blob' }).then((r) => r.data as Blob),
+  // سجلّ من فتح المستند ومتى (متاح للأدمن الرئيسي فقط)
+  views: (id: string) =>
+    api.get<AttachmentView[]>(`/attachments/${id}/views`).then((r) => r.data),
+  remove: (id: string) => api.delete(`/attachments/${id}`).then((r) => r.data),
 };

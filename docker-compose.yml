@@ -18,7 +18,9 @@ services:
       MYSQL_PASSWORD: gsdms_password
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
-      - "3306:3306"
+      # Bind to 127.0.0.1:3307 to avoid clashing with a host MySQL on 3306.
+      # The backend reaches the db via the internal docker network on 3306.
+      - "127.0.0.1:3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
@@ -43,7 +45,7 @@ services:
       JWT_EXPIRES_IN: "8h"
       JWT_REFRESH_EXPIRES_IN: "7d"
       CORS_ORIGIN: "http://localhost:3200"
-      BCRYPT_ROUNDS: "12"
+      BCRYPT_ROUNDS: "10"
     ports:
       - "3100:3100"
     volumes:
