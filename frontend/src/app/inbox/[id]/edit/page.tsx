@@ -17,6 +17,7 @@ import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
 import { ManagedSelect } from '@/components/ManagedSelect';
 import { TransactionTypeSelect } from '@/components/TransactionTypeSelect';
+import { DateDMY } from '@/components/DateDMY';
 import { ExistingAttachments } from '@/components/ExistingAttachments';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence, canManageReference } from '@/lib/permissions';
@@ -212,7 +213,10 @@ function EditIncomingInner() {
 
             <div>
               <label className="label">تاريخ المستند</label>
-              <input type="date" lang="en-GB" dir="ltr" className="input" {...register('originalDate')} />
+              <DateDMY
+                value={watch('originalDate') || ''}
+                onChange={(v) => setValue('originalDate', v, { shouldValidate: true })}
+              />
             </div>
 
             <div>

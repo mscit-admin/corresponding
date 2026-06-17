@@ -18,6 +18,7 @@ import { MultiFileUpload } from '@/components/MultiFileUpload';
 import { ScanButton } from '@/components/ScanButton';
 import { ManagedSelect } from '@/components/ManagedSelect';
 import { TransactionTypeSelect } from '@/components/TransactionTypeSelect';
+import { DateDMY } from '@/components/DateDMY';
 import { useAuthStore } from '@/store/auth';
 import { canManageReference } from '@/lib/permissions';
 import { PRIORITY_OPTIONS, CONFIDENTIALITY_OPTIONS } from '@/lib/incoming-constants';
@@ -189,7 +190,10 @@ function NewIncomingInner() {
 
             <div>
               <label className="label">تاريخ المستند</label>
-              <input type="date" lang="en-GB" dir="ltr" className="input" {...register('originalDate')} />
+              <DateDMY
+                value={watch('originalDate') || ''}
+                onChange={(v) => setValue('originalDate', v, { shouldValidate: true })}
+              />
             </div>
 
             <div>
