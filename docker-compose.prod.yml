@@ -51,6 +51,10 @@ services:
       # Admin login password — CHANGE THIS to a strong secret before real use.
       # Applied to the 'admin' account on every (re)start.
       ADMIN_PASSWORD: "Admin@1234"
+      # AI — استخراج موضوع المراسلة من المستند (OCR). ضع المفتاح في ملف .env
+      # بجوار هذا الملف: ANTHROPIC_API_KEY=sk-ant-...  (تبقى الميزة معطّلة إن تُرك فارغاً)
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-opus-4-8}"
     volumes:
       - uploads_data:/app/uploads
 
