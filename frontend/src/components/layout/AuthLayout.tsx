@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  IconArchive, IconSearch, IconBell, IconHome, IconInbox,
+  IconArchive, IconSearch, IconHome, IconInbox,
   IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/NotificationBell';
 
 const navItems = [
   { href: '/dashboard', label: 'الرئيسية', icon: IconHome },
@@ -68,10 +69,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           </form>
 
           <div className="flex items-center gap-3 shrink-0">
-            <button className="relative p-2 rounded-md hover:bg-slate-100" aria-label="إشعارات">
-              <IconBell className="w-5 h-5 text-slate-600" />
-              <span className="absolute -top-0.5 -left-0.5 bg-red-500 text-white text-[9px] px-1.5 rounded-full font-medium">5</span>
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">
                 {user.fullName.slice(0, 2)}

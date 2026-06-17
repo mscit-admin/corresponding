@@ -35,7 +35,7 @@ api.interceptors.response.use(
 // API Endpoints
 // =========================
 
-import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department, AttachmentView, TransactionType } from '@/types';
+import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedResponse, ExternalEntity, Department, AttachmentView, TransactionType, AppNotification } from '@/types';
 
 export const authApi = {
   login: (username: string, password: string) =>
@@ -75,6 +75,11 @@ export const incomingApi = {
   ) => api.patch<IncomingCorrespondence>(`/correspondence/incoming/${id}`, data).then((r) => r.data),
   route: (id: string, data: { departmentIds: string[]; note?: string }) =>
     api.post<IncomingCorrespondence>(`/correspondence/incoming/${id}/route`, data).then((r) => r.data),
+  // إجراءات إدارة المعاملة: approve | reject | return | note | print | close | archive
+  act: (id: string, action: string, note?: string) =>
+    api
+      .post<IncomingCorrespondence>(`/correspondence/incoming/${id}/${action}`, { note })
+      .then((r) => r.data),
   create: (data: {
     receivedAt: string;
     senderEntityId: string;
@@ -91,6 +96,17 @@ export const incomingApi = {
     visibilityDeptIds?: string[];
   }) =>
     api.post<IncomingCorrespondence>('/correspondence/incoming', data).then((r) => r.data),
+};
+
+export const notificationsApi = {
+  list: (unreadOnly?: boolean) =>
+    api
+      .get<AppNotification[]>('/notifications', { params: unreadOnly ? { unread: 'true' } : {} })
+      .then((r) => r.data),
+  unreadCount: () =>
+    api.get<{ count: number }>('/notifications/unread-count').then((r) => r.data.count),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`).then((r) => r.data),
+  markAllRead: () => api.patch('/notifications/read-all').then((r) => r.data),
 };
 
 export const referenceApi = {

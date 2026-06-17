@@ -38,3 +38,10 @@ export const ROUTING_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
 export function canRoute(roleName?: string): boolean {
   return !!roleName && ROUTING_ROLES.includes(roleName);
 }
+
+// Roles allowed to take decision actions (اعتماد/رفض/إغلاق/أرشفة).
+export const DECISION_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
+
+export function canDecide(roleName?: string): boolean {
+  return !!roleName && DECISION_ROLES.includes(roleName);
+}

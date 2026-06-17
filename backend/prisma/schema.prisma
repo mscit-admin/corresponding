@@ -109,6 +109,7 @@ model User {
   incomingViews         IncomingView[]            @relation("IncomingViewUser")
   attachmentViews       AttachmentView[]          @relation("AttachmentViewUser")
   incomingRoutings      IncomingRouting[]         @relation("IncomingRoutedBy")
+  incomingActions       IncomingAction[]          @relation("IncomingActionActor")
   outgoingCreated       OutgoingCorrespondence[]  @relation("OutgoingCreatedBy")
   outgoingApproved      OutgoingCorrespondence[]  @relation("OutgoingApprovedBy")
   outgoingOwned         OutgoingCorrespondence[]  @relation("OutgoingOwner")
@@ -169,9 +170,25 @@ enum CorrespondenceType {
 enum IncomingStatus {
   new
   in_progress
+  returned
+  approved
+  rejected
   responded
   closed
   archived
+}
+
+// أنواع إجراءات إدارة المعاملة (سجل الحركة / Timeline)
+enum IncomingActionType {
+  open      // فتح المعاملة
+  refer     // إحالة / تهميش
+  approve   // اعتماد
+  reject    // رفض
+  return    // إعادة
+  note      // إضافة ملاحظة
+  print     // طباعة
+  close     // إغلاق
+  archive   // أرشفة
 }
 
 enum OutgoingStatus {
@@ -262,6 +279,7 @@ model IncomingCorrespondence {
   visibilityDepts IncomingVisibilityDept[]
   views           IncomingView[]
   routings        IncomingRouting[]
+  actions         IncomingAction[]
 
   @@index([serialNo])
   @@index([receivedAt])
@@ -313,6 +331,24 @@ model IncomingRouting {
   @@index([incomingId])
   @@index([departmentId])
   @@map("incoming_routings")
+}
+
+// سجل حركة المعاملة (Timeline) — كل إجراء يُوثَّق: مَن، متى، وماذا كتب
+model IncomingAction {
+  id         BigInt             @id @default(autoincrement())
+  incomingId BigInt             @map("incoming_id")
+  actorId    BigInt             @map("actor_id")
+  action     IncomingActionType
+  note       String?            @db.Text
+  fromStatus String?            @map("from_status") @db.VarChar(20)
+  toStatus   String?            @map("to_status") @db.VarChar(20)
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  incoming IncomingCorrespondence @relation(fields: [incomingId], references: [id], onDelete: Cascade)
+  actor    User                   @relation("IncomingActionActor", fields: [actorId], references: [id])
+
+  @@index([incomingId, createdAt])
+  @@map("incoming_actions")
 }
 
 model OutgoingCorrespondence {

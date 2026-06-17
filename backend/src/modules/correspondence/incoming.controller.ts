@@ -5,6 +5,7 @@ import { IncomingService } from './incoming.service';
 import { CreateIncomingDto } from './dto/create-incoming.dto';
 import { UpdateIncomingDto } from './dto/update-incoming.dto';
 import { RouteIncomingDto } from './dto/route-incoming.dto';
+import { ActionDto } from './dto/action-incoming.dto';
 import { QueryIncomingDto } from './dto/query-incoming.dto';
 import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 
@@ -55,5 +56,47 @@ export class IncomingController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.incomingService.route(BigInt(id), dto, user);
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ summary: 'اعتماد المعاملة (للمدير)' })
+  async approve(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'approve', dto, user);
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'رفض المعاملة (للمدير) — يتطلب سبباً' })
+  async reject(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'reject', dto, user);
+  }
+
+  @Post(':id/return')
+  @ApiOperation({ summary: 'إعادة المعاملة — يتطلب ملاحظة' })
+  async returnAction(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'return', dto, user);
+  }
+
+  @Post(':id/note')
+  @ApiOperation({ summary: 'إضافة ملاحظة على المعاملة' })
+  async note(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'note', dto, user);
+  }
+
+  @Post(':id/print')
+  @ApiOperation({ summary: 'تسجيل طباعة المعاملة' })
+  async print(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'print', dto, user);
+  }
+
+  @Post(':id/close')
+  @ApiOperation({ summary: 'إغلاق المعاملة (للمدير)' })
+  async close(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'close', dto, user);
+  }
+
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'أرشفة المعاملة (للمدير)' })
+  async archive(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
+    return this.incomingService.act(BigInt(id), 'archive', dto, user);
   }
 }

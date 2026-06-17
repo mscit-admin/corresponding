@@ -5,7 +5,50 @@
 export type Priority = 'normal' | 'urgent' | 'immediate' | 'top_secret';
 export type Confidentiality = 'normal' | 'secret' | 'top_secret';
 export type Visibility = 'public' | 'departments' | 'private';
-export type IncomingStatus = 'new' | 'in_progress' | 'responded' | 'closed' | 'archived';
+export type IncomingStatus =
+  | 'new'
+  | 'in_progress'
+  | 'returned'
+  | 'approved'
+  | 'rejected'
+  | 'responded'
+  | 'closed'
+  | 'archived';
+
+export type IncomingActionKind =
+  | 'open'
+  | 'refer'
+  | 'approve'
+  | 'reject'
+  | 'return'
+  | 'note'
+  | 'print'
+  | 'close'
+  | 'archive';
+
+export interface IncomingActionEntry {
+  id: string;
+  action: IncomingActionKind;
+  note?: string | null;
+  fromStatus?: string | null;
+  toStatus?: string | null;
+  actorName?: string | null;
+  actorDepartment?: string | null;
+  createdAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  type: 'transfer' | 'approval' | 'reminder' | 'system' | 'mention';
+  title: string;
+  body?: string | null;
+  actionUrl?: string | null;
+  relatedType?: string | null;
+  relatedId?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
 
 export interface CorrespondenceViewer {
   userId: string;
@@ -88,6 +131,7 @@ export interface IncomingCorrespondence {
   visibilityDeptNames?: string[];
   viewers?: CorrespondenceViewer[];
   routings?: IncomingRouting[];
+  actions?: IncomingActionEntry[];
   routedTo?: string[];
   status: IncomingStatus;
   recipientType?: 'internal' | 'external';

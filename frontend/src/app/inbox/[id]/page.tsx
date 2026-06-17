@@ -4,10 +4,7 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  IconArrowRight, IconFileText, IconBuilding, IconUser, IconCalendar,
-  IconStar, IconAlertTriangle, IconCheck, IconClock, IconArrowDown,
-  IconArrowBackUp, IconSend, IconPrinter, IconArchive, IconEye,
-  IconCircleCheck, IconSparkles, IconPencil,
+  IconArrowRight, IconStar, IconEye, IconSparkles, IconPencil,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { incomingApi } from '@/lib/api';
@@ -15,8 +12,10 @@ import { DocumentViewer } from '@/components/DocumentViewer';
 import { useAuthStore } from '@/store/auth';
 import { canEditCorrespondence, canRoute } from '@/lib/permissions';
 import { RoutingSection } from '@/components/RoutingSection';
-import { priorityLabel, confidentialityLabel, statusLabel, visibilityLabel } from '@/lib/incoming-constants';
-import { formatDateAr, formatDateTimeAr, timeAgoAr, cn } from '@/lib/utils';
+import { IncomingActions } from '@/components/IncomingActions';
+import { IncomingTimeline } from '@/components/IncomingTimeline';
+import { priorityLabel, confidentialityLabel, statusLabel, visibilityLabel, STATUS_BADGE_CLASS } from '@/lib/incoming-constants';
+import { formatDateAr, formatDateTimeAr, cn } from '@/lib/utils';
 
 function CorrespondenceDetailsPageInner() {
   const params = useParams();
@@ -85,7 +84,9 @@ function CorrespondenceDetailsPageInner() {
             {data.confidentiality && data.confidentiality !== 'normal' && (
               <span className="badge-danger">{confidentialityLabel(data.confidentiality)}</span>
             )}
-            <span className="badge-info">{statusLabel(data.status)}</span>
+            <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium', STATUS_BADGE_CLASS[data.status] || 'bg-slate-100 text-slate-600')}>
+              {statusLabel(data.status)}
+            </span>
           </div>
           <button aria-label="مميزة"><IconStar className="w-5 h-5 text-amber-500" /></button>
         </div>
@@ -125,43 +126,8 @@ function CorrespondenceDetailsPageInner() {
       {/* Document Preview */}
       <DocumentViewer attachments={data.attachments} showViewLog={user?.roleName === 'super_admin'} />
 
-      {/* Timeline */}
-      <div className="card">
-        <h2 className="text-sm font-medium mb-4 flex items-center gap-2"><IconClock className="w-4 h-4 text-slate-400" /> سير المعاملة</h2>
-
-        <TimelineStep
-          icon={<IconArrowDown className="w-3 h-3" />}
-          color="bg-emerald-100 text-emerald-700"
-          title="وردت من الجهة المرسلة"
-          subtitle={data.senderEntity?.nameAr}
-          date={data.receivedAt}
-        />
-        <TimelineStep
-          icon={<IconCheck className="w-3 h-3" />}
-          color="bg-emerald-100 text-emerald-700"
-          title="تم التسجيل في النظام"
-          subtitle={data.creator ? `بواسطة: ${data.creator.fullName}` : ''}
-          date={data.createdAt}
-        />
-        {data.currentOwner && (
-          <TimelineStep
-            icon={<IconSend className="w-3 h-3" />}
-            color="bg-emerald-100 text-emerald-700"
-            title="حُولت للمعالجة"
-            subtitle={`إلى: ${data.currentOwner.fullName}`}
-            date={data.updatedAt}
-          />
-        )}
-        <TimelineStep
-          icon={<IconClock className="w-3 h-3" />}
-          color="bg-amber-100 text-amber-700"
-          title="بانتظار إجراء"
-          subtitle="الخطوة الحالية"
-          date={null}
-          isCurrent
-          isLast
-        />
-      </div>
+      {/* Timeline (سجل حركة المعاملة) */}
+      <IncomingTimeline data={data} />
 
       {/* Routing / referral (التوجيه) */}
       <RoutingSection id={id} routings={data.routings} canRoute={canRoute(user?.roleName)} />
@@ -197,37 +163,13 @@ function CorrespondenceDetailsPageInner() {
         )}
       </div>
 
-      {/* Actions */}
-      <div className="card flex flex-wrap gap-2 justify-center">
-        {canEdit && (
-          <Link href={`/inbox/${id}/edit`} className="btn-primary"><IconPencil className="w-4 h-4" /> تعديل</Link>
-        )}
-        <button className="btn"><IconCircleCheck className="w-4 h-4" /> اعتماد</button>
-        <button className="btn"><IconArrowBackUp className="w-4 h-4" /> رد</button>
-        <button className="btn"><IconSend className="w-4 h-4" /> تحويل</button>
-        <button onClick={handlePrint} className="btn"><IconPrinter className="w-4 h-4" /> طباعة الرقم الإشاري</button>
-        <button className="btn"><IconArchive className="w-4 h-4" /> أرشفة</button>
-      </div>
-    </div>
-  );
-}
-
-function TimelineStep({ icon, color, title, subtitle, date, isCurrent, isLast }: {
-  icon: React.ReactNode; color: string; title: string; subtitle?: string;
-  date: string | null; isCurrent?: boolean; isLast?: boolean;
-}) {
-  return (
-    <div className="flex gap-3 mb-3 last:mb-0">
-      <div className="flex flex-col items-center shrink-0">
-        <div className={cn('w-6 h-6 rounded-full flex items-center justify-center', color)}>{icon}</div>
-        {!isLast && <div className="w-px flex-1 bg-slate-200 mt-1 min-h-[20px]" />}
-      </div>
-      <div className="flex-1 pb-2">
-        <div className={cn('text-sm font-medium', isCurrent && 'text-amber-700')}>{title}</div>
-        {subtitle && <div className="text-xs text-slate-600 mt-0.5">{subtitle}</div>}
-        {date && <div className="text-xs text-slate-400 mt-0.5">{formatDateTimeAr(date)}</div>}
-        {!date && isCurrent && <div className="text-xs text-slate-400 mt-0.5">الآن</div>}
-      </div>
+      {/* Edit + Actions */}
+      {canEdit && (
+        <div className="flex justify-end">
+          <Link href={`/inbox/${id}/edit`} className="btn-primary text-xs"><IconPencil className="w-4 h-4" /> تعديل البيانات</Link>
+        </div>
+      )}
+      <IncomingActions data={data} roleName={user?.roleName} onPrintSerial={handlePrint} />
     </div>
   );
 }

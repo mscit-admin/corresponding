@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // Roles allowed to EDIT correspondence (the supervisor/admin only — the
 // regular data-entry officer can register but not modify).
@@ -8,6 +9,33 @@ const EDIT_ROLES = ['super_admin', 'archive_mgr'];
 const MANAGER_ROLES = ['super_admin', 'archive_mgr'];
 // Roles allowed to route/refer (تهميش) correspondence to departments
 const ROUTING_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
+// Roles allowed to take decision actions (اعتماد/رفض/إغلاق/أرشفة)
+const DECISION_ROLES = ['super_admin', 'archive_mgr', 'dept_manager'];
+
+// Workflow actions and the status each one moves the correspondence to.
+const ACTION_TO_STATUS: Record<string, string | null> = {
+  approve: 'approved',
+  reject: 'rejected',
+  return: 'returned',
+  close: 'closed',
+  archive: 'archived',
+  note: null, // no status change
+  print: null, // no status change
+};
+// Actions that require an explanatory note from the user
+const NOTE_REQUIRED = ['reject', 'return', 'note'];
+// Actions blocked once the correspondence is terminal (closed/archived)
+const BLOCKED_WHEN_TERMINAL = ['approve', 'reject', 'return', 'refer'];
+const TERMINAL_STATUSES = ['closed', 'archived'];
+// Arabic labels for notification messages
+const ACTION_LABEL_AR: Record<string, string> = {
+  approve: 'اعتماد',
+  reject: 'رفض',
+  return: 'إعادة',
+  close: 'إغلاق',
+  archive: 'أرشفة',
+  note: 'ملاحظة',
+};
 
 // ---- Security clearance (درجة السرية) ----
 // أعلى درجة سرية يستطيع كل دور الاطّلاع عليها / تعيينها. يخضع له الجميع.
@@ -38,7 +66,10 @@ const serializeBigInt = (obj: any) =>
 export class IncomingService {
   private readonly logger = new Logger(IncomingService.name);
   
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(data: any, user: any, ip?: any) {
     const userId = user?.id ?? user;
@@ -233,6 +264,10 @@ export class IncomingService {
           orderBy: { createdAt: 'desc' },
           include: { routedByUser: { select: { fullName: true } } },
         },
+        actions: {
+          orderBy: { createdAt: 'asc' },
+          include: { actor: { select: { fullName: true, department: { select: { name: true } } } } },
+        },
       },
     });
     if (!item) throw new NotFoundException('المراسلة غير موجودة');
@@ -257,13 +292,26 @@ export class IncomingService {
     }
 
     // ---- Record the view (not for the creator) ----
+    // First open by a user is also logged in the timeline as an "open" action.
     if (userIdBig != null && !isCreator) {
       try {
-        await this.prisma.incomingView.upsert({
+        const existingView = await this.prisma.incomingView.findUnique({
           where: { incomingId_userId: { incomingId: idBig, userId: userIdBig } },
-          update: { lastViewedAt: new Date(), viewCount: { increment: 1 } },
-          create: { incomingId: idBig, userId: userIdBig },
+          select: { id: true },
         });
+        if (existingView) {
+          await this.prisma.incomingView.update({
+            where: { incomingId_userId: { incomingId: idBig, userId: userIdBig } },
+            data: { lastViewedAt: new Date(), viewCount: { increment: 1 } },
+          });
+        } else {
+          await this.prisma.incomingView.create({
+            data: { incomingId: idBig, userId: userIdBig },
+          });
+          await this.prisma.incomingAction.create({
+            data: { incomingId: idBig, actorId: userIdBig, action: 'open' },
+          });
+        }
       } catch (e) {
         this.logger.warn(`Could not record view: ${e.message}`);
       }
@@ -316,7 +364,19 @@ export class IncomingService {
       createdAt: r.createdAt,
     }));
 
-    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames, routings });
+    // Action log / timeline (سجل حركة المعاملة)
+    const actions = item.actions.map((a) => ({
+      id: a.id,
+      action: a.action,
+      note: a.note,
+      fromStatus: a.fromStatus,
+      toStatus: a.toStatus,
+      actorName: a.actor?.fullName || null,
+      actorDepartment: a.actor?.department?.name || null,
+      createdAt: a.createdAt,
+    }));
+
+    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames, routings, actions });
   }
 
   async findOne(id: any, user?: any) {
@@ -399,6 +459,10 @@ export class IncomingService {
     const item = await this.prisma.incomingCorrespondence.findUnique({ where: { id: idBig } });
     if (!item) throw new NotFoundException('المراسلة غير موجودة');
 
+    if (TERMINAL_STATUSES.includes(item.status)) {
+      throw new BadRequestException('لا يمكن إحالة معاملة مغلقة أو مؤرشفة');
+    }
+
     const deptIds: string[] = Array.isArray(data?.departmentIds) ? data.departmentIds : [];
     if (!deptIds.length) throw new BadRequestException('اختر إدارة واحدة على الأقل للتوجيه');
     const note = data?.note?.trim() || null;
@@ -424,7 +488,155 @@ export class IncomingService {
       },
     });
 
+    // log the referral in the timeline
+    await this.prisma.incomingAction.create({
+      data: {
+        incomingId: idBig,
+        actorId: userIdBig,
+        action: 'refer',
+        note,
+        fromStatus: item.status,
+        toStatus: item.status === 'new' ? 'in_progress' : item.status,
+      },
+    });
+
+    // notify the members of the routed departments
+    await this.notifyDepartments(deptIds, userIdBig, {
+      type: 'transfer',
+      title: 'أُحيلت إليك معاملة واردة',
+      body: `${item.serialNo} — ${item.subject}`,
+      actionUrl: `/inbox/${idBig}`,
+      relatedType: 'incoming',
+      relatedId: idBig,
+    });
+
     this.logger.log(`✓ Routed correspondence ${idBig} to depts [${deptIds.join(',')}] by ${user?.username}`);
     return this.findById(idBig, user);
+  }
+
+  /**
+   * إجراءات إدارة المعاملة: اعتماد/رفض/إعادة/ملاحظة/طباعة/إغلاق/أرشفة.
+   * الفتح يُسجَّل تلقائياً عند عرض التفاصيل.
+   */
+  async act(id: any, action: string, data: any, user: any) {
+    const roleName = user?.role?.name;
+    const idBig = typeof id === 'bigint' ? id : BigInt(id);
+    const userIdBig = BigInt(user.id);
+
+    if (!(action in ACTION_TO_STATUS)) {
+      throw new BadRequestException('إجراء غير معروف');
+    }
+
+    const item = await this.prisma.incomingCorrespondence.findUnique({
+      where: { id: idBig },
+      include: { visibilityDepts: true, routings: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    });
+    if (!item) throw new NotFoundException('المراسلة غير موجودة');
+
+    // ---- Access control (same rules as viewing) ----
+    const isManager = MANAGER_ROLES.includes(roleName);
+    const deptBig = user?.departmentId ? BigInt(user.departmentId) : undefined;
+    const isCreator = item.createdBy === userIdBig;
+    const isOwner = item.currentOwnerId === userIdBig;
+    const deptAllowed =
+      item.visibility === 'departments' && deptBig != null &&
+      item.visibilityDepts.some((v) => v.departmentId === deptBig);
+    const canView = isManager || item.visibility === 'public' || isCreator || isOwner || deptAllowed;
+    if (!canView) throw new ForbiddenException('ليس لديك صلاحية الوصول لهذه المراسلة');
+    if (clearanceRank(roleName) < (CONF_RANK[item.confidentiality] ?? 0)) {
+      throw new ForbiddenException('ليس لديك التصريح الأمني الكافي لهذه المراسلة');
+    }
+
+    // ---- Permission per action: decisions are for managers only ----
+    const isDecision = ['approve', 'reject', 'close', 'archive'].includes(action);
+    if (isDecision && !DECISION_ROLES.includes(roleName)) {
+      throw new ForbiddenException('هذا الإجراء متاح للمدراء فقط');
+    }
+
+    // ---- Status guards (note/print are always allowed, even when archived) ----
+    if (BLOCKED_WHEN_TERMINAL.includes(action) && TERMINAL_STATUSES.includes(item.status)) {
+      throw new BadRequestException('لا يمكن تنفيذ هذا الإجراء على معاملة مغلقة أو مؤرشفة');
+    }
+    if (action === 'archive' && item.status === 'archived') {
+      throw new BadRequestException('المعاملة مؤرشفة بالفعل');
+    }
+    if (action === 'close' && TERMINAL_STATUSES.includes(item.status)) {
+      throw new BadRequestException('المعاملة مغلقة أو مؤرشفة بالفعل');
+    }
+
+    // ---- Note requirement ----
+    const note = data?.note?.trim() || null;
+    if (NOTE_REQUIRED.includes(action) && !note) {
+      throw new BadRequestException('يجب إدخال ملاحظة/سبب لهذا الإجراء');
+    }
+
+    // ---- Apply status change (if any) ----
+    const toStatus = ACTION_TO_STATUS[action];
+    if (toStatus) {
+      await this.prisma.incomingCorrespondence.update({
+        where: { id: idBig },
+        data: { status: toStatus as any },
+      });
+    }
+
+    // ---- Log in the timeline ----
+    await this.prisma.incomingAction.create({
+      data: {
+        incomingId: idBig,
+        actorId: userIdBig,
+        action: action as any,
+        note,
+        fromStatus: item.status,
+        toStatus: toStatus ?? null,
+      },
+    });
+
+    // ---- Notifications ----
+    await this.notifyForAction(action, item, userIdBig, note);
+
+    this.logger.log(`✓ Action '${action}' on incoming ${idBig} by ${user?.username}`);
+    return this.findById(idBig, user);
+  }
+
+  /** Notify the members of the given departments (excluding the actor). */
+  private async notifyDepartments(deptIds: string[], actorId: bigint, payload: any) {
+    try {
+      const members = await this.prisma.user.findMany({
+        where: { departmentId: { in: deptIds.map((d) => BigInt(d)) }, isActive: true },
+        select: { id: true },
+      });
+      const recipients = members.map((m) => m.id).filter((uid) => uid !== actorId);
+      await this.notifications.notifyMany(recipients, payload);
+    } catch (e) {
+      this.logger.warn(`Could not send routing notifications: ${e.message}`);
+    }
+  }
+
+  /** Notify the relevant people when a decision/return/note happens. */
+  private async notifyForAction(action: string, item: any, actorId: bigint, note: string | null) {
+    try {
+      const label = ACTION_LABEL_AR[action] || action;
+      const body = `${item.serialNo} — ${item.subject}`;
+      const base = { actionUrl: `/inbox/${item.id}`, relatedType: 'incoming', relatedId: item.id };
+
+      if (action === 'approve' || action === 'reject') {
+        // notify the creator and current owner of the decision
+        await this.notifications.notifyMany(
+          [item.createdBy, item.currentOwnerId].filter((u) => u && u !== actorId),
+          { type: 'approval', title: `تم ${label} معاملتك الواردة`, body, ...base },
+        );
+      } else if (action === 'return') {
+        // send back to the last person who referred it, or the creator
+        const lastReferrer = item.routings?.[0]?.routedBy;
+        const target = lastReferrer && lastReferrer !== actorId ? lastReferrer : item.createdBy;
+        await this.notifications.notifyMany(
+          [target].filter((u) => u && u !== actorId),
+          { type: 'transfer', title: 'أُعيدت إليك معاملة واردة', body, ...base },
+        );
+      }
+      // note/print/close/archive: no notification (kept quiet to avoid noise)
+    } catch (e) {
+      this.logger.warn(`Could not send action notifications: ${e.message}`);
+    }
   }
 }
