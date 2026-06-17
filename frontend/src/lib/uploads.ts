@@ -18,22 +18,45 @@ export interface SubjectExtraction {
   confidence: 'high' | 'medium' | 'low';
 }
 
-/** هل ميزة الاستخراج بالذكاء الاصطناعي مُفعّلة على الخادم؟ */
-export async function aiStatus(): Promise<boolean> {
+export interface AiStatusProvider {
+  id: string;
+  name: string;
+  kind: 'anthropic' | 'openai';
+  models: string[];
+  defaultModel: string;
+}
+
+export interface AiStatus {
+  enabled: boolean;
+  defaultProviderId: string | null;
+  providers: AiStatusProvider[];
+}
+
+/** حالة ميزة الاستخراج: مُفعّلة؟ وما المزوّدات/الموديلات المتاحة للاختيار. */
+export async function aiStatus(): Promise<AiStatus> {
   try {
     const res = await axios.get(`${apiBase()}/ai/status`, {
       headers: { Authorization: `Bearer ${authToken()}` },
     });
-    return !!res.data?.enabled;
+    return {
+      enabled: !!res.data?.enabled,
+      defaultProviderId: res.data?.defaultProviderId ?? null,
+      providers: Array.isArray(res.data?.providers) ? res.data.providers : [],
+    };
   } catch {
-    return false;
+    return { enabled: false, defaultProviderId: null, providers: [] };
   }
 }
 
-/** يرسل المستند للخادم لاستخراج موضوع المراسلة وملخّصها عبر الذكاء الاصطناعي. */
-export async function extractSubjectAI(file: File): Promise<SubjectExtraction> {
+/** يرسل المستند للخادم لاستخراج موضوع المراسلة وملخّصها عبر مزوّد/موديل محدّد. */
+export async function extractSubjectAI(
+  file: File,
+  opts?: { providerId?: string; model?: string },
+): Promise<SubjectExtraction> {
   const formData = new FormData();
   formData.append('file', file);
+  if (opts?.providerId) formData.append('providerId', opts.providerId);
+  if (opts?.model) formData.append('model', opts.model);
   const res = await axios.post(`${apiBase()}/ai/extract-subject`, formData, {
     headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${authToken()}` },
   });

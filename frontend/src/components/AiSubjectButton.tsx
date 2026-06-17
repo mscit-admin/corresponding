@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { IconSparkles, IconLoader2 } from '@tabler/icons-react';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ const SUPPORTED = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'i
 
 /**
  * زر اختياري: يستخرج موضوع المراسلة من المستند المرفق (PDF/صورة) عبر الذكاء الاصطناعي
- * ويملأ حقل الموضوع. المُدخِل يقرّر استخدامه حسب نوع المستند — لا يعمل تلقائياً.
+ * ويملأ حقل الموضوع. المُدخِل يختار المزوّد/الموديل لكل معاملة — لا يعمل تلقائياً.
  */
 export function AiSubjectButton({
   files,
@@ -21,17 +21,39 @@ export function AiSubjectButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [providerId, setProviderId] = useState('');
+  const [model, setModel] = useState('');
 
-  const { data: enabled } = useQuery({
+  const { data: status } = useQuery({
     queryKey: ['ai-status'],
     queryFn: aiStatus,
     staleTime: 5 * 60 * 1000,
   });
 
+  const providers = status?.providers ?? [];
+  const selectedProvider = useMemo(
+    () => providers.find((p) => p.id === providerId) ?? providers[0],
+    [providers, providerId],
+  );
+
+  // اضبط المزوّد/الموديل الافتراضي عند توفّر الحالة
+  useEffect(() => {
+    if (!status?.enabled || providers.length === 0) return;
+    const def = providers.find((p) => p.id === status.defaultProviderId) ?? providers[0];
+    setProviderId((cur) => (providers.some((p) => p.id === cur) ? cur : def.id));
+  }, [status, providers]);
+
+  useEffect(() => {
+    if (!selectedProvider) return;
+    setModel((cur) => (selectedProvider.models.includes(cur) ? cur : selectedProvider.defaultModel));
+  }, [selectedProvider]);
+
   // أخفِ الزر إن كانت الميزة غير مُفعّلة على الخادم
-  if (enabled === false) return null;
+  if (status?.enabled === false) return null;
 
   const candidate = files.find((f) => SUPPORTED.includes(f.type));
+  const multipleProviders = providers.length > 1;
+  const multipleModels = (selectedProvider?.models.length ?? 0) > 1;
 
   const run = async () => {
     if (!candidate) {
@@ -41,7 +63,10 @@ export function AiSubjectButton({
     try {
       setLoading(true);
       setSummary(null);
-      const res = await extractSubjectAI(candidate);
+      const res = await extractSubjectAI(candidate, {
+        providerId: selectedProvider?.id,
+        model: model || selectedProvider?.defaultModel,
+      });
       if (!res.subject) {
         toast.error('تعذّر استخراج موضوع واضح؛ يمكنك كتابته يدوياً');
         return;
@@ -74,6 +99,39 @@ export function AiSubjectButton({
           {candidate ? `(${candidate.name})` : 'أضِف ملف PDF أو صورة لتفعيله'}
         </span>
       </div>
+
+      {/* اختيار المزوّد/الموديل لهذه المعاملة (يظهر فقط عند توفّر خيارات متعددة) */}
+      {(multipleProviders || multipleModels) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {multipleProviders && (
+            <select
+              className="input text-[11px] py-1 px-2 h-auto w-auto"
+              value={selectedProvider?.id ?? ''}
+              onChange={(e) => setProviderId(e.target.value)}
+              disabled={loading}
+              title="المزوّد"
+            >
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
+          {multipleModels && (
+            <select
+              className="input text-[11px] py-1 px-2 h-auto w-auto"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={loading}
+              title="الموديل"
+            >
+              {selectedProvider?.models.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       {summary && (
         <div className="text-[11px] text-slate-600 bg-blue-50 border border-blue-100 rounded p-2 leading-relaxed">
           <span className="font-medium text-blue-800">ملخّص ذكي:</span> {summary}

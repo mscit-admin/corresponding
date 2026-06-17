@@ -48,29 +48,51 @@ export const usersApi = {
     api.get<PaginatedResponse<UserDetail>>('/users', { params }).then((r) => r.data),
 };
 
+export type AiProviderKind = 'anthropic' | 'openai';
+
+export interface AiProvider {
+  id: string;
+  name: string;
+  kind: AiProviderKind;
+  baseUrl: string;
+  models: string[];
+  defaultModel: string;
+  enabled: boolean;
+  locked: boolean;
+  keyMasked: string;
+}
+
 export interface AiSettings {
   enabled: boolean;
-  hasKey: boolean;
-  keySource: 'db' | 'env' | 'none';
-  keyMasked: string;
-  keyLocked: boolean;
-  model: string;
   prompt: string;
   defaultPrompt: string;
-  availableModels: { id: string; label: string }[];
+  defaultProviderId: string | null;
+  providers: AiProvider[];
+  modelSuggestions: Record<AiProviderKind, { id: string; label: string }[]>;
+}
+
+export interface AiProviderInput {
+  name: string;
+  kind: AiProviderKind;
+  baseUrl?: string;
+  apiKey?: string;
+  models: string[];
+  defaultModel: string;
+  enabled?: boolean;
 }
 
 export const aiSettingsApi = {
   get: () => api.get<AiSettings>('/ai/settings').then((r) => r.data),
-  update: (data: {
-    enabled?: boolean;
-    model?: string;
-    prompt?: string;
-    apiKey?: string;
-    clearKey?: boolean;
-  }) => api.patch<AiSettings>('/ai/settings', data).then((r) => r.data),
-  test: (apiKey?: string) =>
-    api.post<{ ok: boolean; message: string }>('/ai/settings/test', { apiKey }).then((r) => r.data),
+  update: (data: { enabled?: boolean; prompt?: string; defaultProviderId?: string }) =>
+    api.patch<AiSettings>('/ai/settings', data).then((r) => r.data),
+  createProvider: (data: AiProviderInput) =>
+    api.post<AiSettings>('/ai/providers', data).then((r) => r.data),
+  updateProvider: (id: string, data: Partial<AiProviderInput>) =>
+    api.patch<AiSettings>(`/ai/providers/${id}`, data).then((r) => r.data),
+  deleteProvider: (id: string) =>
+    api.delete<AiSettings>(`/ai/providers/${id}`).then((r) => r.data),
+  test: (id: string, data: { kind?: AiProviderKind; baseUrl?: string; apiKey?: string; model?: string }) =>
+    api.post<{ ok: boolean; message: string }>(`/ai/providers/${id}/test`, data).then((r) => r.data),
 };
 
 export const incomingApi = {
