@@ -424,6 +424,8 @@ export class AiService {
 
     const prompt = (await this.getRaw(K_PROMPT)) || DEFAULT_PROMPT;
     const mime = file.mimetype;
+    const sizeKb = Math.round((file.size || file.buffer.length) / 1024);
+    this.logger.log(`AI extract start: ${provider.kind}/${model}, file=${mime} ${sizeKb}KB`);
 
     try {
       let raw: string;
@@ -432,7 +434,12 @@ export class AiService {
       } else {
         raw = await this.runOpenAi(provider, model, prompt, file, mime);
       }
-      return this.parse(raw.trim());
+      this.logger.log(`AI raw response (${provider.kind}/${model}): ${(raw || '').slice(0, 600)}`);
+      const result = this.parse(raw.trim());
+      if (!result.subject) {
+        this.logger.warn(`AI returned empty subject (file ${mime} ${sizeKb}KB). Raw: ${(raw || '').slice(0, 300)}`);
+      }
+      return result;
     } catch (e: any) {
       if (e instanceof BadRequestException) throw e;
       this.logger.error(`AI extraction failed (${provider.kind}/${model}): ${e?.message}`);
