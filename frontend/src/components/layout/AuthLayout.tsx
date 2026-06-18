@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconHome, IconInbox,
   IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
+  IconHistory, IconShieldLock,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,7 @@ type NavItem = {
   badge?: string;
   disabled?: boolean;
   adminOnly?: boolean;
+  superAdminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -29,6 +31,8 @@ const navItems: NavItem[] = [
   { href: '/reports', label: 'التقارير', icon: IconChartBar, disabled: true },
   { href: '/users', label: 'المستخدمين', icon: IconUsers, disabled: true },
   { href: '/admin/ai-settings', label: 'إعدادات الذكاء الاصطناعي', icon: IconSparkles, adminOnly: true },
+  { href: '/admin/audit-log', label: 'سجلّ التعديلات', icon: IconHistory, superAdminOnly: true },
+  { href: '/admin/access-log', label: 'سجلّ الوصول', icon: IconShieldLock, superAdminOnly: true },
   { href: '/settings', label: 'الإعدادات', icon: IconSettings, disabled: true },
 ];
 
@@ -101,7 +105,8 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         <aside className="w-56 bg-white border-l border-slate-200 hidden md:block">
           <nav className="p-3 space-y-1">
             {navItems
-              .filter((item) => !item.adminOnly || canManageAiSettings(user.roleName))
+              .filter((item) => (!item.adminOnly || canManageAiSettings(user.roleName))
+                && (!item.superAdminOnly || user.roleName === 'super_admin'))
               .map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));

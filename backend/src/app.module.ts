@@ -9,6 +9,7 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { ReferenceModule } from './modules/reference/reference.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AiModule } from './modules/ai/ai.module';
+import { LogsModule } from './modules/logs/logs.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -34,6 +35,7 @@ import configuration from './config/configuration';
     ReferenceModule,
     NotificationsModule,
     AiModule,
+    LogsModule,
   ],
 })
 export class AppModule {}

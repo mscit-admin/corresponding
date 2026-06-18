@@ -105,6 +105,33 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+export interface LogEntry {
+  id: string;
+  action: string;
+  actorName: string | null;
+  actorDepartment: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  oldValues: Record<string, any> | null;
+  newValues: Record<string, any> | null;
+  ipAddress: string;
+  createdAt: string;
+}
+
+export interface LogResult {
+  total: number;
+  skip: number;
+  take: number;
+  items: LogEntry[];
+}
+
+export const logsApi = {
+  audit: (params?: { action?: string; skip?: number; take?: number }) =>
+    api.get<LogResult>('/logs/audit', { params }).then((r) => r.data),
+  access: (params?: { action?: string; skip?: number; take?: number }) =>
+    api.get<LogResult>('/logs/access', { params }).then((r) => r.data),
+};
+
 export const incomingApi = {
   list: (params?: { skip?: number; take?: number; status?: string; search?: string; myInbox?: boolean }) =>
     api.get<PaginatedResponse<IncomingCorrespondence>>('/correspondence/incoming', { params }).then((r) => r.data),

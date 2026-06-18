@@ -311,6 +311,8 @@ export class IncomingService {
           await this.prisma.incomingAction.create({
             data: { incomingId: idBig, actorId: userIdBig, action: 'open' },
           });
+          // سجلّ الوصول: أول فتح للمعاملة من هذا المستخدم
+          void this.writeAudit({ userId: userIdBig, action: 'CORRESPONDENCE_VIEWED', entityId: idBig });
         }
       } catch (e) {
         this.logger.warn(`Could not record view: ${e.message}`);
