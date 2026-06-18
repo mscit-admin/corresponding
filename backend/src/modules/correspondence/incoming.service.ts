@@ -27,6 +27,14 @@ const NOTE_REQUIRED = ['reject', 'return', 'note'];
 // Actions blocked once the correspondence is terminal (closed/archived)
 const BLOCKED_WHEN_TERMINAL = ['approve', 'reject', 'return', 'refer'];
 const TERMINAL_STATUSES = ['closed', 'archived'];
+// أسماء الحقول بالعربية لرسائل التنبيه/التدقيق
+const AR_FIELDS: Record<string, string> = {
+  receivedAt: 'تاريخ الورود', registryNo: 'رقم القيد', senderEntityId: 'الجهة المرسِلة',
+  senderRefNo: 'الرقم الإشاري', originalDate: 'تاريخ المستند', subject: 'الموضوع',
+  transactionType: 'نوع المعاملة', priority: 'الأهمية', confidentiality: 'السرية',
+  recipientType: 'نوع المُرسَل إليه', recipientName: 'المُرسَل إليه', status: 'الحالة',
+  visibility: 'صلاحية المشاهدة', currentOwnerId: 'المالك الحالي',
+};
 // Arabic labels for notification messages
 const ACTION_LABEL_AR: Record<string, string> = {
   approve: 'اعتماد',
@@ -550,6 +558,21 @@ export class IncomingService {
           ip,
           userAgent,
         });
+
+        // تنبيه مديري النظام بالتغيير (مع رابط لمكان الحدث)
+        const verb = auditAction === 'RESTORE' ? 'استرجاع بيانات' : 'تعديل بيانات';
+        const fieldsAr = Object.keys(newValues).map((f) => AR_FIELDS[f] || f).join('، ');
+        void this.notifications.notifySuperAdmins(
+          {
+            type: 'system',
+            title: `${verb} — ${updated.serialNo || `معاملة #${idBig}`}`,
+            body: `${user?.username || 'مستخدم'} قام بـ${verb} (${fieldsAr})`,
+            actionUrl: `/inbox/${idBig}`,
+            relatedType: 'incoming',
+            relatedId: idBig,
+          },
+          user?.id,
+        );
       }
 
       this.logger.log(`✓ Updated correspondence id: ${idBig} by ${user?.username}`);

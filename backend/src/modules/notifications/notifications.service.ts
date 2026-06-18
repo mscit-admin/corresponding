@@ -37,6 +37,17 @@ export class NotificationsService {
     });
   }
 
+  /** ينبّه كل مديري النظام (super_admin) بحدث، مع استثناء منفّذ الحدث. */
+  async notifySuperAdmins(input: NotifyInput, exceptUserId?: bigint | string | number | null) {
+    const admins = await this.prisma.user.findMany({
+      where: { isActive: true, role: { name: 'super_admin' } },
+      select: { id: true },
+    });
+    const except = exceptUserId != null ? BigInt(exceptUserId as any).toString() : null;
+    const ids = admins.map((a) => a.id).filter((id) => id.toString() !== except);
+    await this.notifyMany(ids, input);
+  }
+
   async list(userId: bigint | string, opts: { unreadOnly?: boolean; take?: number } = {}) {
     const where: any = { userId: BigInt(userId) };
     if (opts.unreadOnly) where.isRead = false;

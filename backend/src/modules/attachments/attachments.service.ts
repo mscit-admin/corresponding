@@ -4,6 +4,7 @@ import { existsSync, unlinkSync, mkdirSync } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const execFileP = promisify(execFile);
 
@@ -23,7 +24,14 @@ export class AttachmentsService {
   private readonly UPLOADS = join(process.cwd(), 'uploads');
   private readonly CACHE = join(process.cwd(), 'uploads', 'cache');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
+
+  private actionUrlFor(type: string, id: string | bigint) {
+    return type === 'outgoing' ? `/outgoing/${id}` : `/inbox/${id}`;
+  }
 
   async save(params: {
     correspondenceType: string;
@@ -82,6 +90,19 @@ export class AttachmentsService {
       ip,
       userAgent,
     });
+
+    // تنبيه مديري النظام بإضافة مستند (مع رابط لمكان الحدث)
+    void this.notifications.notifySuperAdmins(
+      {
+        type: 'system',
+        title: 'إضافة مرفق',
+        body: `تمت إضافة المستند: ${file.originalname}`,
+        actionUrl: this.actionUrlFor(correspondenceType, correspondenceId),
+        relatedType: correspondenceType,
+        relatedId: correspondenceIdBig,
+      },
+      userIdBig,
+    );
 
     return serializeBigInt(result);
   }
@@ -241,6 +262,19 @@ export class AttachmentsService {
         ip,
         userAgent,
       });
+
+      // تنبيه مديري النظام بحذف مستند
+      void this.notifications.notifySuperAdmins(
+        {
+          type: 'system',
+          title: 'حذف مرفق',
+          body: `تم حذف المستند: ${attachment.originalName}`,
+          actionUrl: this.actionUrlFor(String(attachment.correspondenceType || 'incoming'), attachment.correspondenceId),
+          relatedType: String(attachment.correspondenceType || 'incoming'),
+          relatedId: BigInt(attachment.correspondenceId),
+        },
+        userId,
+      );
     }
 
     // best-effort delete of the file on disk (and any cached PDF preview)
