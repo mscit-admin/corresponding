@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import {
-  IconFileText, IconDownload, IconExternalLink, IconPhoto, IconLoader2, IconAlertTriangle, IconEye,
+  IconFileText, IconDownload, IconPhoto, IconLoader2, IconAlertTriangle, IconEye,
+  IconMaximize, IconX,
 } from '@tabler/icons-react';
 import { attachmentsApi } from '@/lib/api';
 import { formatDateTimeAr } from '@/lib/utils';
@@ -33,8 +34,17 @@ export function DocumentViewer({
   const [showLog, setShowLog] = useState(false);
   const [views, setViews] = useState<AttachmentView[]>([]);
   const [viewsLoading, setViewsLoading] = useState(false);
+  const [zoom, setZoom] = useState(false); // معاينة مكبّرة داخل النظام
 
   const current = attachments?.[active];
+
+  // إغلاق المعاينة المكبّرة بمفتاح Esc
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoom(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoom]);
 
   // جلب سجلّ الفتح للمرفق النشط عند فتح اللوحة (للأدمن الرئيسي فقط)
   useEffect(() => {
@@ -105,15 +115,15 @@ export function DocumentViewer({
               <IconEye className="w-3.5 h-3.5" /> سجل الفتح
             </button>
           )}
+          {url && (isImage || isPdf) && (
+            <button type="button" onClick={() => setZoom(true)} className="btn text-xs py-1" title="معاينة مكبّرة داخل النظام">
+              <IconMaximize className="w-3.5 h-3.5" /> معاينة
+            </button>
+          )}
           {url && (
-            <>
-              <a href={url} target="_blank" rel="noopener noreferrer" className="btn text-xs py-1" title="فتح في تبويب جديد">
-                <IconExternalLink className="w-3.5 h-3.5" /> فتح
-              </a>
-              <a href={url} download={current?.originalName} className="btn text-xs py-1" title="تنزيل">
-                <IconDownload className="w-3.5 h-3.5" /> تنزيل
-              </a>
-            </>
+            <a href={url} download={current?.originalName} className="btn text-xs py-1" title="تنزيل">
+              <IconDownload className="w-3.5 h-3.5" /> تنزيل
+            </a>
           )}
         </div>
       </div>
@@ -203,6 +213,31 @@ export function DocumentViewer({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* معاينة مكبّرة داخل النظام (Modal) مع زر إغلاق */}
+      {zoom && url && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setZoom(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoom(false)}
+            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-slate-800 shadow"
+            title="إغلاق (Esc)"
+          >
+            <IconX className="w-5 h-5" />
+          </button>
+          <div className="max-w-5xl w-full max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            {isImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={url} alt={current?.originalName} className="max-h-[90vh] w-auto mx-auto object-contain rounded" />
+            ) : (
+              <iframe src={url} title={current?.originalName} className="w-full h-[90vh] bg-white rounded" />
+            )}
+          </div>
         </div>
       )}
     </div>
