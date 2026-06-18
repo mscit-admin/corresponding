@@ -44,8 +44,16 @@ export class IncomingController {
     @Param('id') id: string,
     @Body() dto: UpdateIncomingDto,
     @CurrentUser() user: AuthUser,
+    @Req() req: Request,
   ) {
-    return this.incomingService.update(BigInt(id), dto, user);
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
+    return this.incomingService.update(BigInt(id), dto, user, ip);
+  }
+
+  @Get(':id/audit')
+  @ApiOperation({ summary: 'سجلّ التعديلات التفصيلي للمراسلة (لمدير النظام)' })
+  async audit(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.incomingService.getAuditLog(BigInt(id), user);
   }
 
   @Post(':id/route')

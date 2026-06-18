@@ -95,11 +95,23 @@ export const aiSettingsApi = {
     api.post<{ ok: boolean; message: string }>(`/ai/providers/${id}/test`, data).then((r) => r.data),
 };
 
+export interface AuditEntry {
+  id: string;
+  action: string;
+  actorName: string | null;
+  actorDepartment: string | null;
+  oldValues: Record<string, any> | null;
+  newValues: Record<string, any> | null;
+  createdAt: string;
+}
+
 export const incomingApi = {
   list: (params?: { skip?: number; take?: number; status?: string; search?: string; myInbox?: boolean }) =>
     api.get<PaginatedResponse<IncomingCorrespondence>>('/correspondence/incoming', { params }).then((r) => r.data),
   getById: (id: string) =>
     api.get<IncomingCorrespondence>(`/correspondence/incoming/${id}`).then((r) => r.data),
+  audit: (id: string) =>
+    api.get<AuditEntry[]>(`/correspondence/incoming/${id}/audit`).then((r) => r.data),
   update: (
     id: string,
     data: {

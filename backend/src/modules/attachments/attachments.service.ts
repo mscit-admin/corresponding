@@ -30,8 +30,9 @@ export class AttachmentsService {
     correspondenceId: string;
     file: Express.Multer.File;
     userId: any;
+    ip?: string;
   }) {
-    const { correspondenceType, correspondenceId, file, userId } = params;
+    const { correspondenceType, correspondenceId, file, userId, ip } = params;
     this.logger.log(
       `Saving attachment: ${file.originalname} for ${correspondenceType}#${correspondenceId}`,
     );
@@ -70,13 +71,51 @@ export class AttachmentsService {
     const result = rows[0] || null;
     this.logger.log(`✓ Saved attachment id: ${result?.id}`);
 
+    // سجلّ التدقيق: من أضاف المستند ومتى وبأي تفاصيل
+    await this.writeAudit({
+      userId: userIdBig,
+      action: 'ATTACHMENT_ADDED',
+      entityType: correspondenceType,
+      entityId: correspondenceIdBig,
+      newValues: { originalName: file.originalname, fileSize: file.size, mimeType: file.mimetype },
+      ip,
+    });
+
     return serializeBigInt(result);
+  }
+
+  /** يكتب سطراً في سجلّ التدقيق (fire-and-forget). */
+  private async writeAudit(p: {
+    userId: bigint;
+    action: string;
+    entityType: string;
+    entityId: bigint;
+    oldValues?: any;
+    newValues?: any;
+    ip?: string;
+  }) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: p.userId,
+          action: p.action,
+          entityType: p.entityType,
+          entityId: p.entityId,
+          oldValues: p.oldValues ?? undefined,
+          newValues: p.newValues ?? undefined,
+          ipAddress: p.ip || '0.0.0.0',
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(`Audit write failed (${p.action}): ${e.message}`);
+    }
   }
 
   async findById(id: string) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       `SELECT id, file_name as fileName, original_name as originalName,
-              file_path as filePath, mime_type as mimeType, file_size as fileSize
+              file_path as filePath, mime_type as mimeType, file_size as fileSize,
+              correspondence_type as correspondenceType, correspondence_id as correspondenceId
        FROM attachments WHERE id = ?`,
       BigInt(id),
     );
@@ -180,12 +219,24 @@ export class AttachmentsService {
     );
   }
 
-  async remove(id: string): Promise<boolean> {
+  async remove(id: string, userId?: any, ip?: string): Promise<boolean> {
     const attachment = await this.findById(id);
     if (!attachment) return false;
 
     // delete the DB row
     await this.prisma.$executeRawUnsafe(`DELETE FROM attachments WHERE id = ?`, BigInt(id));
+
+    // سجلّ التدقيق: من حذف المستند
+    if (userId && attachment.correspondenceId) {
+      await this.writeAudit({
+        userId: BigInt(userId),
+        action: 'ATTACHMENT_DELETED',
+        entityType: String(attachment.correspondenceType || 'incoming'),
+        entityId: BigInt(attachment.correspondenceId),
+        oldValues: { originalName: attachment.originalName },
+        ip,
+      });
+    }
 
     // best-effort delete of the file on disk (and any cached PDF preview)
     try {

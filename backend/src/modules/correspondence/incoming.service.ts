@@ -383,7 +383,78 @@ export class IncomingService {
     return this.findById(id, user);
   }
 
-  async update(id: any, data: any, user: any) {
+  /** يحسب الفروقات بين القيم القديمة و الجديدة (الحقول المتغيّرة فقط). */
+  private diffChanges(existing: any, updateData: any): { oldValues: any; newValues: any } {
+    const norm = (v: any) =>
+      v instanceof Date ? v.toISOString() : typeof v === 'bigint' ? v.toString() : v ?? null;
+    const oldValues: any = {};
+    const newValues: any = {};
+    for (const key of Object.keys(updateData)) {
+      const before = norm((existing as any)[key]);
+      const after = norm(updateData[key]);
+      if (String(before ?? '') !== String(after ?? '')) {
+        oldValues[key] = before;
+        newValues[key] = after;
+      }
+    }
+    return { oldValues, newValues };
+  }
+
+  /** يكتب سطراً في سجلّ التدقيق (fire-and-forget) لا يُفشل العملية الأساسية. */
+  private async writeAudit(params: {
+    userId: any;
+    action: string;
+    entityId: bigint;
+    oldValues?: any;
+    newValues?: any;
+    ip?: string;
+    userAgent?: string;
+  }) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: BigInt(params.userId),
+          action: params.action,
+          entityType: 'incoming',
+          entityId: params.entityId,
+          oldValues: params.oldValues ?? undefined,
+          newValues: params.newValues ?? undefined,
+          ipAddress: params.ip || '0.0.0.0',
+          userAgent: params.userAgent || null,
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(`Audit write failed (${params.action}): ${e.message}`);
+    }
+  }
+
+  /** سجلّ التعديلات التفصيلي لمراسلة — لمدير النظام فقط. */
+  async getAuditLog(id: any, user: any) {
+    if (user?.role?.name !== 'super_admin') {
+      throw new ForbiddenException('سجلّ التعديلات متاح لمدير النظام فقط');
+    }
+    const idBig = typeof id === 'bigint' ? id : BigInt(id);
+    const rows = await this.prisma.auditLog.findMany({
+      where: { entityType: 'incoming', entityId: idBig },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: { fullName: true, fullNameAr: true, department: { select: { name: true } } },
+        },
+      },
+    });
+    return rows.map((r) => ({
+      id: r.id.toString(),
+      action: r.action,
+      actorName: r.user?.fullNameAr || r.user?.fullName || null,
+      actorDepartment: r.user?.department?.name || null,
+      oldValues: r.oldValues,
+      newValues: r.newValues,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  async update(id: any, data: any, user: any, ip?: string) {
     const roleName = user?.role?.name;
     if (!EDIT_ROLES.includes(roleName)) {
       throw new ForbiddenException('ليس لديك صلاحية تعديل المراسلات');
@@ -437,6 +508,19 @@ export class IncomingService {
             skipDuplicates: true,
           });
         }
+      }
+
+      // سجلّ التدقيق: ما الحقول التي تغيّرت (قيمة قديمة ← جديدة) — لمدير النظام
+      const { oldValues, newValues } = this.diffChanges(existing, updateData);
+      if (Object.keys(newValues).length) {
+        void this.writeAudit({
+          userId: user?.id,
+          action: 'UPDATE',
+          entityId: idBig,
+          oldValues,
+          newValues,
+          ip,
+        });
       }
 
       this.logger.log(`✓ Updated correspondence id: ${idBig} by ${user?.username}`);

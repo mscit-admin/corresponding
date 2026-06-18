@@ -14,6 +14,7 @@ import { canEditCorrespondence, canRoute } from '@/lib/permissions';
 import { RoutingSection } from '@/components/RoutingSection';
 import { IncomingActions } from '@/components/IncomingActions';
 import { IncomingTimeline } from '@/components/IncomingTimeline';
+import { ChangeLog } from '@/components/ChangeLog';
 import { priorityLabel, confidentialityLabel, statusLabel, visibilityLabel, STATUS_BADGE_CLASS } from '@/lib/incoming-constants';
 import { formatDateAr, formatDateTimeAr, cn } from '@/lib/utils';
 
@@ -128,6 +129,9 @@ function CorrespondenceDetailsPageInner() {
 
       {/* Timeline (سجل حركة المعاملة) */}
       <IncomingTimeline data={data} />
+
+      {/* سجلّ التعديلات التفصيلي — لمدير النظام فقط */}
+      {user?.roleName === 'super_admin' && <ChangeLog id={id} />}
 
       {/* Routing / referral (التوجيه) */}
       <RoutingSection id={id} routings={data.routings} canRoute={canRoute(user?.roleName)} />
