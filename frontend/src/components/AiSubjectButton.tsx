@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { IconSparkles, IconLoader2 } from '@tabler/icons-react';
+import { IconSparkles, IconLoader2, IconCopy, IconCheck } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { aiStatus, extractSubjectAI } from '@/lib/uploads';
 
@@ -21,6 +21,8 @@ export function AiSubjectButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [fullText, setFullText] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [providerId, setProviderId] = useState('');
   const [model, setModel] = useState('');
 
@@ -63,10 +65,13 @@ export function AiSubjectButton({
     try {
       setLoading(true);
       setSummary(null);
+      setFullText(null);
+      setCopied(false);
       const res = await extractSubjectAI(candidate, {
         providerId: selectedProvider?.id,
         model: model || selectedProvider?.defaultModel,
       });
+      setFullText(res.fullText || null);
       if (!res.subject) {
         toast.error('تعذّر استخراج موضوع واضح؛ يمكنك كتابته يدوياً');
         return;
@@ -135,6 +140,38 @@ export function AiSubjectButton({
       {summary && (
         <div className="text-[11px] text-slate-600 bg-blue-50 border border-blue-100 rounded p-2 leading-relaxed">
           <span className="font-medium text-blue-800">ملخّص ذكي:</span> {summary}
+        </div>
+      )}
+
+      {fullText && (
+        <div className="border border-slate-200 rounded p-2 space-y-1.5 bg-slate-50">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-slate-700">النص الكامل المستخرج</span>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(fullText);
+                  setCopied(true);
+                  toast.success('تم نسخ النص الكامل');
+                  setTimeout(() => setCopied(false), 2000);
+                } catch {
+                  toast.error('تعذّر النسخ');
+                }
+              }}
+              className="text-[11px] text-brand-600 hover:underline inline-flex items-center gap-1"
+            >
+              {copied ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
+              {copied ? 'تم النسخ' : 'نسخ'}
+            </button>
+          </div>
+          <textarea
+            readOnly
+            value={fullText}
+            rows={8}
+            className="input text-[11px] leading-relaxed font-sans w-full bg-white"
+            onFocus={(e) => e.currentTarget.select()}
+          />
         </div>
       )}
     </div>

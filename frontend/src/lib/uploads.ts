@@ -15,6 +15,7 @@ function apiBase(): string {
 export interface SubjectExtraction {
   subject: string;
   summary: string;
+  fullText: string;
   confidence: 'high' | 'medium' | 'low';
 }
 
