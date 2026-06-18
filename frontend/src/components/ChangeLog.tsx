@@ -63,6 +63,13 @@ function ActionHeader({ entry }: { entry: AuditEntry }) {
       </span>
     );
   }
+  if (entry.action === 'RESTORE') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-amber-700">
+        <IconArrowBackUp className="w-4 h-4" /> استرجاع بيانات
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 text-brand-700">
       <IconPencil className="w-4 h-4" /> تعديل بيانات
@@ -136,7 +143,7 @@ export function ChangeLog({ id }: { id: string }) {
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs font-semibold"><ActionHeader entry={entry} /></div>
                 <div className="flex items-center gap-2">
-                  {entry.action === 'UPDATE' && entry.oldValues && Object.keys(entry.oldValues).length > 0 && (
+                  {(entry.action === 'UPDATE' || entry.action === 'RESTORE') && entry.oldValues && Object.keys(entry.oldValues).length > 0 && (
                     <button
                       type="button"
                       onClick={() => {

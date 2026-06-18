@@ -470,11 +470,11 @@ export class IncomingService {
     if (entry.action !== 'UPDATE' || !entry.oldValues || typeof entry.oldValues !== 'object') {
       throw new BadRequestException('هذا السطر لا يحتوي على بيانات قابلة للاسترجاع');
     }
-    // تطبيق القيم القديمة (update يتكفّل بتحويل الأنواع وتسجيل تعديل جديد)
-    return this.update(idBig, entry.oldValues as any, user, ip);
+    // تطبيق القيم القديمة (update يتكفّل بتحويل الأنواع وتسجيل العملية كـ«استرجاع»)
+    return this.update(idBig, entry.oldValues as any, user, ip, 'RESTORE');
   }
 
-  async update(id: any, data: any, user: any, ip?: string) {
+  async update(id: any, data: any, user: any, ip?: string, auditAction: string = 'UPDATE') {
     const roleName = user?.role?.name;
     if (!EDIT_ROLES.includes(roleName)) {
       throw new ForbiddenException('ليس لديك صلاحية تعديل المراسلات');
@@ -535,7 +535,7 @@ export class IncomingService {
       if (Object.keys(newValues).length) {
         void this.writeAudit({
           userId: user?.id,
-          action: 'UPDATE',
+          action: auditAction,
           entityId: idBig,
           oldValues,
           newValues,
