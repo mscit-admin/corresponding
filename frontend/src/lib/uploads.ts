@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-export const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+export const ALLOWED_TYPES = [
+  'application/pdf',
+  'image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif',
+  'application/msword', // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/vnd.ms-excel', // .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+];
 export const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 
 function authToken(): string | null {
@@ -66,9 +73,19 @@ export async function extractSubjectAI(
 
 /** Returns an error message if the file is invalid, otherwise null. */
 export function validateFile(file: File): string | null {
-  if (!ALLOWED_TYPES.includes(file.type)) return 'نوع غير مدعوم (المسموح: PDF, JPG, PNG)';
+  if (!ALLOWED_TYPES.includes(file.type)) return 'نوع غير مدعوم (المسموح: PDF, Word, Excel, JPG, PNG)';
   if (file.size > MAX_SIZE) return 'حجم الملف كبير جداً (الحد الأقصى 20 ميجا)';
   return null;
+}
+
+/** أيقونة/تصنيف نوع الملف للعرض في الواجهة. */
+export function fileKind(mime?: string): 'image' | 'pdf' | 'word' | 'excel' | 'other' {
+  if (!mime) return 'other';
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime.includes('word') || mime === 'application/msword') return 'word';
+  if (mime.includes('spreadsheet') || mime.includes('excel')) return 'excel';
+  return 'other';
 }
 
 export function formatBytes(bytes: number): string {

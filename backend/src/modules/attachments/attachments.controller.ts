@@ -45,11 +45,18 @@ export class AttachmentsController {
       }),
       limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
       fileFilter: (req, file, cb) => {
-        const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+        const allowed = [
+          'application/pdf',
+          'image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif',
+          'application/msword', // .doc
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+          'application/vnd.ms-excel', // .xls
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        ];
         if (allowed.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('نوع الملف غير مدعوم. المسموح: PDF, JPG, PNG, WEBP'), false);
+          cb(new BadRequestException('نوع الملف غير مدعوم. المسموح: PDF, Word, Excel, JPG, PNG, WEBP'), false);
         }
       },
     }),

@@ -46,13 +46,13 @@ export function MultiFileUpload({ files, onAdd, onRemove, scannerSlot }: MultiFi
       >
         <IconUpload className="w-10 h-10 mx-auto text-slate-400 mb-2" />
         <div className="text-sm font-medium text-slate-700">اسحب الملفات هنا أو اضغط للاختيار</div>
-        <div className="text-xs text-slate-500 mt-1">يمكنك اختيار أكثر من ملف · PDF, JPG, PNG (حتى 20 ميجا لكل ملف)</div>
+        <div className="text-xs text-slate-500 mt-1">يمكنك اختيار أكثر من ملف · PDF, Word, Excel, JPG, PNG (حتى 20 ميجا لكل ملف)</div>
         <input
           ref={inputRef}
           type="file"
           multiple
           className="hidden"
-          accept="application/pdf,image/jpeg,image/png,image/webp"
+          accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.doc,.docx,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           onChange={(e) => { handleIncoming(e.target.files); e.currentTarget.value = ''; }}
         />
         {scannerSlot && (

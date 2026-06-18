@@ -2,18 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import {
-  IconFileText, IconPhoto, IconTrash, IconExternalLink, IconLoader2,
+  IconFileText, IconPhoto, IconTrash, IconExternalLink, IconLoader2, IconDownload,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { attachmentsApi } from '@/lib/api';
-import { formatBytes } from '@/lib/uploads';
+import { formatBytes, fileKind } from '@/lib/uploads';
 import type { Attachment } from '@/types';
+
+const KIND_LABEL: Record<string, string> = {
+  pdf: 'PDF', word: 'Word', excel: 'Excel', image: 'صورة', other: 'ملف',
+};
 
 /** Thumbnail/preview for one existing attachment (fetched with auth). */
 function AttachmentCard({ att, onDeleted }: { att: Attachment; onDeleted: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const isImage = att.mimeType?.startsWith('image/');
+  const kind = fileKind(att.mimeType);
+  const isImage = kind === 'image';
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -44,7 +49,7 @@ function AttachmentCard({ att, onDeleted }: { att: Attachment; onDeleted: () => 
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-      <div className="h-32 bg-slate-100 flex items-center justify-center overflow-hidden">
+      <div className="h-32 bg-slate-100 flex items-center justify-center overflow-hidden relative">
         {isImage && url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={att.originalName} className="w-full h-full object-cover" />
@@ -53,6 +58,9 @@ function AttachmentCard({ att, onDeleted }: { att: Attachment; onDeleted: () => 
         ) : (
           <IconFileText className="w-10 h-10 text-slate-400" />
         )}
+        <span className="absolute top-1 right-1 text-[9px] px-1.5 py-0.5 rounded bg-white/90 border border-slate-200 text-slate-600">
+          {KIND_LABEL[kind]}
+        </span>
       </div>
       <div className="p-2 space-y-1">
         <div className="text-xs font-medium text-slate-800 truncate flex items-center gap-1">
@@ -62,17 +70,23 @@ function AttachmentCard({ att, onDeleted }: { att: Attachment; onDeleted: () => 
         <div className="text-[10px] text-slate-400">{formatBytes(Number(att.fileSize))}</div>
         <div className="flex items-center gap-1 pt-1">
           {url && (
-            <a href={url} target="_blank" rel="noopener noreferrer" className="btn text-[11px] py-1 flex-1 justify-center">
+            <a href={url} target="_blank" rel="noopener noreferrer" className="btn text-[11px] py-1 px-2 justify-center" title="عرض">
               <IconExternalLink className="w-3.5 h-3.5" /> عرض
+            </a>
+          )}
+          {url && (
+            <a href={url} download={att.originalName} className="btn text-[11px] py-1 px-2 justify-center" title="تنزيل">
+              <IconDownload className="w-3.5 h-3.5" /> تنزيل
             </a>
           )}
           <button
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            className="btn text-[11px] py-1 flex-1 justify-center text-red-600 hover:bg-red-50 disabled:opacity-50"
+            className="btn text-[11px] py-1 px-2 justify-center text-red-600 hover:bg-red-50 disabled:opacity-50"
+            title="حذف"
           >
-            <IconTrash className="w-3.5 h-3.5" /> {deleting ? 'جارٍ الحذف' : 'حذف'}
+            <IconTrash className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
