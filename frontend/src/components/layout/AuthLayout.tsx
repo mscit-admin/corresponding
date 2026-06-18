@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { refreshDeviceInfo } from '@/lib/device';
 import { canManageAiSettings } from '@/lib/permissions';
 import { NotificationBell } from '@/components/NotificationBell';
 
@@ -45,6 +46,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token) router.push('/login');
   }, [token, router]);
+
+  // حاول جلب معلومات الجهاز (MAC) من الـAgent المحلي مرّة عند الدخول
+  useEffect(() => {
+    if (token) void refreshDeviceInfo();
+  }, [token]);
 
   if (!token || !user) return null;
 

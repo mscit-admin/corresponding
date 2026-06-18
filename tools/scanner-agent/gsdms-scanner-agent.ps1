@@ -71,6 +71,26 @@ while ($listener.IsListening) {
             continue
         }
 
+        if ($path -eq "/device") {
+            # Return the machine's primary MAC address, local IP and hostname.
+            $mac = ""
+            $localIp = ""
+            try {
+                $cfg = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=True" |
+                       Where-Object { $_.MACAddress } | Select-Object -First 1
+                if ($cfg) {
+                    $mac = $cfg.MACAddress
+                    $localIp = ($cfg.IPAddress | Where-Object { $_ -match '^\d+\.' } | Select-Object -First 1)
+                }
+            } catch {}
+            $payload = @{ mac = $mac; localIp = $localIp; hostname = $env:COMPUTERNAME } | ConvertTo-Json
+            $body = [Text.Encoding]::UTF8.GetBytes($payload)
+            $res.ContentType = "application/json"
+            $res.OutputStream.Write($body, 0, $body.Length)
+            $res.Close()
+            continue
+        }
+
         if ($path -eq "/scan") {
             Write-Host "> Scan request - follow the scanner dialog on screen..." -ForegroundColor Cyan
 

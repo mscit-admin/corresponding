@@ -575,6 +575,8 @@ model AuditLog {
   newValues  Json?    @map("new_values")
   ipAddress  String   @map("ip_address") @db.VarChar(45)
   userAgent  String?  @map("user_agent") @db.Text
+  deviceMac  String?  @map("device_mac") @db.VarChar(64)
+  deviceHost String?  @map("device_host") @db.VarChar(150)
   sessionId  String?  @map("session_id") @db.VarChar(100)
   createdAt  DateTime @default(now()) @map("created_at")
 

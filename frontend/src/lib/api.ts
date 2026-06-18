@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/store/auth';
+import { getCachedDevice } from './device';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100/api/v1';
 
@@ -8,12 +9,16 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor - attach JWT token
+// Request interceptor - attach JWT token + device info (MAC) for audit logging
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const dev = getCachedDevice();
+  if (dev.mac) config.headers['X-Device-Mac'] = dev.mac;
+  if (dev.localIp) config.headers['X-Device-Local-Ip'] = dev.localIp;
+  if (dev.hostname) config.headers['X-Device-Host'] = dev.hostname;
   return config;
 });
 
@@ -104,6 +109,8 @@ export interface AuditEntry {
   newValues: Record<string, any> | null;
   ipAddress?: string;
   userAgent?: string | null;
+  deviceMac?: string | null;
+  deviceHost?: string | null;
   createdAt: string;
 }
 
@@ -118,6 +125,8 @@ export interface LogEntry {
   newValues: Record<string, any> | null;
   ipAddress: string;
   userAgent?: string | null;
+  deviceMac?: string | null;
+  deviceHost?: string | null;
   createdAt: string;
 }
 

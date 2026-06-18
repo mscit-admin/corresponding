@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const AUDIT_ACTIONS = ['UPDATE', 'RESTORE', 'ATTACHMENT_ADDED', 'ATTACHMENT_DELETED'];
-const ACCESS_ACTIONS = ['LOGIN', 'LOGIN_FAILED', 'CORRESPONDENCE_VIEWED'];
+const ACCESS_ACTIONS = ['LOGIN_SUCCESS', 'LOGIN', 'LOGIN_FAILED', 'CORRESPONDENCE_VIEWED'];
 
 export interface LogQuery {
   action?: string;
@@ -68,6 +68,8 @@ export class LogsService {
         newValues: r.newValues,
         ipAddress: r.ipAddress,
         userAgent: r.userAgent,
+        deviceMac: r.deviceMac,
+        deviceHost: r.deviceHost,
         createdAt: r.createdAt,
       })),
     };

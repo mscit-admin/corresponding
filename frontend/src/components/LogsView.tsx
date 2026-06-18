@@ -17,6 +17,7 @@ const ACTION_LABELS: Record<string, string> = {
   ATTACHMENT_ADDED: 'إضافة مرفق',
   ATTACHMENT_DELETED: 'حذف مرفق',
   LOGIN: 'تسجيل دخول',
+  LOGIN_SUCCESS: 'تسجيل دخول',
   LOGIN_FAILED: 'محاولة دخول فاشلة',
   CORRESPONDENCE_VIEWED: 'فتح معاملة',
 };
@@ -27,6 +28,7 @@ const ACTION_COLORS: Record<string, string> = {
   ATTACHMENT_ADDED: 'bg-green-50 text-green-700',
   ATTACHMENT_DELETED: 'bg-red-50 text-red-700',
   LOGIN: 'bg-green-50 text-green-700',
+  LOGIN_SUCCESS: 'bg-green-50 text-green-700',
   LOGIN_FAILED: 'bg-red-50 text-red-700',
   CORRESPONDENCE_VIEWED: 'bg-slate-100 text-slate-700',
 };
@@ -49,7 +51,7 @@ const FILTERS: Record<Kind, { value: string; label: string }[]> = {
   ],
   access: [
     { value: '', label: 'كل أحداث الوصول' },
-    { value: 'LOGIN', label: 'تسجيل دخول' },
+    { value: 'LOGIN_SUCCESS', label: 'تسجيل دخول' },
     { value: 'LOGIN_FAILED', label: 'محاولات فاشلة' },
     { value: 'CORRESPONDENCE_VIEWED', label: 'فتح معاملة' },
   ],
@@ -166,7 +168,13 @@ export function LogsView({ kind }: { kind: Kind }) {
                     {e.actorDepartment && <div className="text-[10px] text-slate-400">{e.actorDepartment}</div>}
                   </td>
                   {isAccess && <td className="px-3 py-2 text-[11px] text-slate-500 font-mono whitespace-nowrap">{e.ipAddress || '—'}</td>}
-                  {isAccess && <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">{deviceLabel(e.userAgent) || '—'}</td>}
+                  {isAccess && (
+                    <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">
+                      <div>{deviceLabel(e.userAgent) || '—'}</div>
+                      {e.deviceMac && <div className="font-mono text-[10px] text-slate-400">MAC: {e.deviceMac}</div>}
+                      {e.deviceHost && <div className="text-[10px] text-slate-400">{e.deviceHost}</div>}
+                    </td>
+                  )}
                   <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">{formatDateTimeAr(e.createdAt)}</td>
                 </tr>
               ))}

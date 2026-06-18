@@ -36,7 +36,10 @@ export class IncomingController {
   @ApiOperation({ summary: 'تفاصيل مراسلة واردة' })
   async findOne(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
-    return this.incomingService.findById(BigInt(id), user, ip, req.headers['user-agent']);
+    return this.incomingService.findById(
+      BigInt(id), user, ip, req.headers['user-agent'],
+      req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+    );
   }
 
   @Patch(':id')
@@ -48,7 +51,10 @@ export class IncomingController {
     @Req() req: Request,
   ) {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
-    return this.incomingService.update(BigInt(id), dto, user, ip, 'UPDATE', req.headers['user-agent']);
+    return this.incomingService.update(
+      BigInt(id), dto, user, ip, 'UPDATE', req.headers['user-agent'],
+      req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+    );
   }
 
   @Get(':id/audit')
@@ -66,7 +72,10 @@ export class IncomingController {
     @Req() req: Request,
   ) {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
-    return this.incomingService.restoreAudit(BigInt(id), BigInt(auditId), user, ip, req.headers['user-agent']);
+    return this.incomingService.restoreAudit(
+      BigInt(id), BigInt(auditId), user, ip, req.headers['user-agent'],
+      req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+    );
   }
 
   @Post(':id/route')

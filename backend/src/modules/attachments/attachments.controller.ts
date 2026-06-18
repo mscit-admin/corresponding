@@ -79,6 +79,8 @@ export class AttachmentsController {
       userId: req.user.id || req.user.sub || req.user.userId,
       ip,
       userAgent: req.headers['user-agent'],
+      deviceMac: req.headers['x-device-mac'],
+      deviceHost: req.headers['x-device-host'],
     });
   }
 
@@ -138,7 +140,10 @@ export class AttachmentsController {
     }
     const userId = req.user?.id || req.user?.sub || req.user?.userId;
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '0.0.0.0';
-    const deleted = await this.service.remove(id, userId, ip, req.headers['user-agent']);
+    const deleted = await this.service.remove(
+      id, userId, ip, req.headers['user-agent'],
+      req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+    );
     if (!deleted) throw new NotFoundException('المرفق غير موجود');
     return { success: true };
   }
