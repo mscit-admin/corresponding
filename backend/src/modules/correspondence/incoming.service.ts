@@ -454,6 +454,26 @@ export class IncomingService {
     }));
   }
 
+  /**
+   * يرجع ببيانات المراسلة إلى ما كانت عليه قبل تعديل سابق (من سجلّ التدقيق).
+   * لمدير النظام فقط. يُطبّق القيم القديمة عبر update فيُسجَّل الاسترجاع كتعديل جديد.
+   */
+  async restoreAudit(id: any, auditId: any, user: any, ip?: string) {
+    if (user?.role?.name !== 'super_admin') {
+      throw new ForbiddenException('الاسترجاع متاح لمدير النظام فقط');
+    }
+    const idBig = typeof id === 'bigint' ? id : BigInt(id);
+    const entry = await this.prisma.auditLog.findUnique({ where: { id: BigInt(auditId) } });
+    if (!entry || entry.entityType !== 'incoming' || entry.entityId?.toString() !== idBig.toString()) {
+      throw new NotFoundException('سجلّ التعديل غير موجود');
+    }
+    if (entry.action !== 'UPDATE' || !entry.oldValues || typeof entry.oldValues !== 'object') {
+      throw new BadRequestException('هذا السطر لا يحتوي على بيانات قابلة للاسترجاع');
+    }
+    // تطبيق القيم القديمة (update يتكفّل بتحويل الأنواع وتسجيل تعديل جديد)
+    return this.update(idBig, entry.oldValues as any, user, ip);
+  }
+
   async update(id: any, data: any, user: any, ip?: string) {
     const roleName = user?.role?.name;
     if (!EDIT_ROLES.includes(roleName)) {

@@ -112,6 +112,8 @@ export const incomingApi = {
     api.get<IncomingCorrespondence>(`/correspondence/incoming/${id}`).then((r) => r.data),
   audit: (id: string) =>
     api.get<AuditEntry[]>(`/correspondence/incoming/${id}/audit`).then((r) => r.data),
+  restoreAudit: (id: string, auditId: string) =>
+    api.post(`/correspondence/incoming/${id}/audit/${auditId}/restore`).then((r) => r.data),
   update: (
     id: string,
     data: {

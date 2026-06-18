@@ -1,9 +1,11 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   IconHistory, IconLoader2, IconPencil, IconPaperclip, IconTrash, IconArrowLeft,
+  IconArrowBackUp,
 } from '@tabler/icons-react';
+import { toast } from 'sonner';
 import { incomingApi, AuditEntry } from '@/lib/api';
 import { formatDateTimeAr } from '@/lib/utils';
 
@@ -98,9 +100,20 @@ function EntryBody({ entry }: { entry: AuditEntry }) {
 
 /** سجلّ التعديلات التفصيلي — يظهر لمدير النظام فقط. */
 export function ChangeLog({ id }: { id: string }) {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['incoming-audit', id],
     queryFn: () => incomingApi.audit(id),
+  });
+
+  const restore = useMutation({
+    mutationFn: (auditId: string) => incomingApi.restoreAudit(id, auditId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['incoming', id] });
+      qc.invalidateQueries({ queryKey: ['incoming-audit', id] });
+      toast.success('تم استرجاع البيانات إلى الحالة السابقة');
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذّر الاسترجاع'),
   });
 
   return (
@@ -122,7 +135,22 @@ export function ChangeLog({ id }: { id: string }) {
             <div key={entry.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0 space-y-1.5">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs font-semibold"><ActionHeader entry={entry} /></div>
-                <div className="text-[11px] text-slate-400">{formatDateTimeAr(entry.createdAt)}</div>
+                <div className="flex items-center gap-2">
+                  {entry.action === 'UPDATE' && entry.oldValues && Object.keys(entry.oldValues).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('استرجاع البيانات إلى ما كانت عليه قبل هذا التعديل؟')) restore.mutate(entry.id);
+                      }}
+                      disabled={restore.isPending}
+                      className="text-[11px] text-brand-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+                      title="الرجوع لهذه الحالة"
+                    >
+                      <IconArrowBackUp className="w-3.5 h-3.5" /> استرجاع
+                    </button>
+                  )}
+                  <div className="text-[11px] text-slate-400">{formatDateTimeAr(entry.createdAt)}</div>
+                </div>
               </div>
               <EntryBody entry={entry} />
               <div className="text-[11px] text-slate-500">

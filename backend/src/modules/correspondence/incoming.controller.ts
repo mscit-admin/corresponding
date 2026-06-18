@@ -56,6 +56,18 @@ export class IncomingController {
     return this.incomingService.getAuditLog(BigInt(id), user);
   }
 
+  @Post(':id/audit/:auditId/restore')
+  @ApiOperation({ summary: 'الرجوع لبيانات سابقة من سجلّ التعديلات (لمدير النظام)' })
+  async restore(
+    @Param('id') id: string,
+    @Param('auditId') auditId: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
+    return this.incomingService.restoreAudit(BigInt(id), BigInt(auditId), user, ip);
+  }
+
   @Post(':id/route')
   @ApiOperation({ summary: 'توجيه/تهميش مراسلة إلى إدارات (للمدير)' })
   async route(
