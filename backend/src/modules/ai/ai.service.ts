@@ -298,8 +298,7 @@ export class AiService {
       throw new BadRequestException('الموديل الافتراضي يجب أن يكون ضمن قائمة الموديلات');
     }
 
-    let baseUrl = body.baseUrl !== undefined ? String(body.baseUrl).trim() : existing?.baseUrl || '';
-    baseUrl = baseUrl.replace(/\/+$/, ''); // إزالة الشرطة الأخيرة
+    let baseUrl = body.baseUrl !== undefined ? this.sanitizeUrl(body.baseUrl) : existing?.baseUrl || '';
     if (kind === 'openai' && !baseUrl) {
       baseUrl = 'https://api.openai.com/v1';
     }
@@ -364,7 +363,7 @@ export class AiService {
         ? body.apiKey.trim() : found.apiKey;
       provider = {
         kind: found.kind,
-        baseUrl: body?.baseUrl?.trim() || found.baseUrl,
+        baseUrl: body?.baseUrl ? this.sanitizeUrl(body.baseUrl) : found.baseUrl,
         apiKey: key,
         model: body?.model?.trim() || found.defaultModel,
       };
@@ -373,7 +372,7 @@ export class AiService {
       const kind: ProviderKind = body?.kind === 'openai' ? 'openai' : 'anthropic';
       provider = {
         kind,
-        baseUrl: body?.baseUrl?.trim() || (kind === 'openai' ? 'https://api.openai.com/v1' : undefined),
+        baseUrl: body?.baseUrl ? this.sanitizeUrl(body.baseUrl) : (kind === 'openai' ? 'https://api.openai.com/v1' : undefined),
         apiKey: String(body?.apiKey || '').trim(),
         model: String(body?.model || '').trim(),
       };
@@ -524,6 +523,19 @@ export class AiService {
     if (status === 404) return 'الموديل أو المسار غير متاح (404) — تحقّق من اسم الموديل وعنوان الـURL.';
     if (status === 429) return 'تم تجاوز حدّ الاستخدام (429) — حاول لاحقاً.';
     return e?.message || 'فشل الاتصال';
+  }
+
+  /**
+   * ينظّف عنوان الـURL: يزيل كل المسافات وأي رموز/أحرف غير مسموح بها في الروابط
+   * (مثل ✅ التي قد تُلصَق بالخطأ)، ويزيل الشرطة الأخيرة.
+   */
+  private sanitizeUrl(raw: any): string {
+    let url = String(raw || '').trim();
+    url = url.replace(/\s+/g, ''); // إزالة كل المسافات (الداخلية والطرفية)
+    // أبقِ فقط الأحرف الصالحة في الروابط؛ يُزيل الإيموجي والرموز الغريبة
+    url = url.replace(/[^A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]/g, '');
+    url = url.replace(/\/+$/, ''); // إزالة الشرطة الأخيرة
+    return url;
   }
 
   private mask(key: string): string {
