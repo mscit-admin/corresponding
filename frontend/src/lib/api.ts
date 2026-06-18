@@ -102,6 +102,7 @@ export interface AuditEntry {
   actorDepartment: string | null;
   oldValues: Record<string, any> | null;
   newValues: Record<string, any> | null;
+  ipAddress?: string;
   createdAt: string;
 }
 

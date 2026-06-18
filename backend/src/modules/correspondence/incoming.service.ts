@@ -253,7 +253,7 @@ export class IncomingService {
     return serializeBigInt({ data: dataWithCounts, total, skip: Number(skip), take: Number(take) });
   }
 
-  async findById(id: any, user?: any) {
+  async findById(id: any, user?: any, ip?: string) {
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
     const item = await this.prisma.incomingCorrespondence.findUnique({
       where: { id: idBig },
@@ -312,7 +312,7 @@ export class IncomingService {
             data: { incomingId: idBig, actorId: userIdBig, action: 'open' },
           });
           // سجلّ الوصول: أول فتح للمعاملة من هذا المستخدم
-          void this.writeAudit({ userId: userIdBig, action: 'CORRESPONDENCE_VIEWED', entityId: idBig });
+          void this.writeAudit({ userId: userIdBig, action: 'CORRESPONDENCE_VIEWED', entityId: idBig, ip });
         }
       } catch (e) {
         this.logger.warn(`Could not record view: ${e.message}`);
@@ -452,6 +452,7 @@ export class IncomingService {
       actorDepartment: r.user?.department?.name || null,
       oldValues: r.oldValues,
       newValues: r.newValues,
+      ipAddress: r.ipAddress,
       createdAt: r.createdAt,
     }));
   }

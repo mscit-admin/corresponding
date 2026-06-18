@@ -34,8 +34,9 @@ export class IncomingController {
 
   @Get(':id')
   @ApiOperation({ summary: 'تفاصيل مراسلة واردة' })
-  async findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.incomingService.findById(BigInt(id), user);
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
+    return this.incomingService.findById(BigInt(id), user, ip);
   }
 
   @Patch(':id')
