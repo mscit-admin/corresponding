@@ -26,6 +26,9 @@ const ENV_PROVIDER_ID = 'env';
 
 export const DEFAULT_MODEL = 'claude-opus-4-8';
 
+// حدّ مخرجات النموذج — كبير بما يكفي ليحتوي JSON كاملاً مع ملخّص مطوّل
+const MAX_OUTPUT_TOKENS = 2048;
+
 /** اقتراحات موديلات تُعرض للأدمن لكل نوع — وله إضافة أي موديل يدوياً. */
 export const MODEL_SUGGESTIONS: Record<ProviderKind, { id: string; label: string }[]> = {
   anthropic: [
@@ -474,7 +477,7 @@ export class AiService {
     const client = new Anthropic({ apiKey: p.apiKey, ...(p.baseUrl ? { baseURL: p.baseUrl } : {}) });
     const response = await client.messages.create({
       model,
-      max_tokens: 1024,
+      max_tokens: MAX_OUTPUT_TOKENS,
       messages: [{ role: 'user', content: [mediaBlock, { type: 'text', text: prompt }] }],
     } as any);
     const textBlock: any = response.content.find((b: any) => b.type === 'text');
@@ -496,7 +499,7 @@ export class AiService {
     return this.openaiChat(p.baseUrl!, p.apiKey, model, [
       { type: 'text', text: prompt },
       { type: 'image_url', image_url: { url: dataUrl } },
-    ], 1024);
+    ], MAX_OUTPUT_TOKENS);
   }
 
   /** نداء عام لواجهة /chat/completions المتوافقة مع OpenAI (عبر fetch). */
@@ -570,7 +573,27 @@ export class AiService {
         confidence: conf,
       };
     } catch {
+      // الـJSON غير مكتمل أو تالف (مثلاً اقتُطع لطول الإخراج) — استخرج الحقول بمرونة
+      const subject = this.extractField(text, 'subject');
+      const summary = this.extractField(text, 'summary');
+      if (subject || summary) {
+        return { subject, summary: summary || raw.slice(0, 500), confidence: 'low' };
+      }
       return { subject: '', summary: raw.slice(0, 500), confidence: 'low' };
     }
+  }
+
+  /** يستخرج قيمة حقل نصّي من JSON غير مكتمل (يتسامح مع نهاية مقطوعة وأحرف الهروب). */
+  private extractField(text: string, key: string): string {
+    const m = text.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`, 'i'));
+    if (!m) return '';
+    let v = m[1];
+    // إن كانت السلسلة مكتملة، توقّف عند علامة الاقتباس الأولى غير المهروبة (يتولاها الـregex)
+    try {
+      v = JSON.parse(`"${v.replace(/\\?$/, '')}"`); // فكّ ترميز أحرف الهروب بأمان
+    } catch {
+      v = v.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    }
+    return v.trim();
   }
 }
