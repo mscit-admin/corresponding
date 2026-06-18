@@ -31,8 +31,9 @@ export class AttachmentsService {
     file: Express.Multer.File;
     userId: any;
     ip?: string;
+    userAgent?: string;
   }) {
-    const { correspondenceType, correspondenceId, file, userId, ip } = params;
+    const { correspondenceType, correspondenceId, file, userId, ip, userAgent } = params;
     this.logger.log(
       `Saving attachment: ${file.originalname} for ${correspondenceType}#${correspondenceId}`,
     );
@@ -79,6 +80,7 @@ export class AttachmentsService {
       entityId: correspondenceIdBig,
       newValues: { originalName: file.originalname, fileSize: file.size, mimeType: file.mimetype },
       ip,
+      userAgent,
     });
 
     return serializeBigInt(result);
@@ -93,6 +95,7 @@ export class AttachmentsService {
     oldValues?: any;
     newValues?: any;
     ip?: string;
+    userAgent?: string;
   }) {
     try {
       await this.prisma.auditLog.create({
@@ -104,6 +107,7 @@ export class AttachmentsService {
           oldValues: p.oldValues ?? undefined,
           newValues: p.newValues ?? undefined,
           ipAddress: p.ip || '0.0.0.0',
+          userAgent: p.userAgent || null,
         },
       });
     } catch (e: any) {
@@ -219,7 +223,7 @@ export class AttachmentsService {
     );
   }
 
-  async remove(id: string, userId?: any, ip?: string): Promise<boolean> {
+  async remove(id: string, userId?: any, ip?: string, userAgent?: string): Promise<boolean> {
     const attachment = await this.findById(id);
     if (!attachment) return false;
 
@@ -235,6 +239,7 @@ export class AttachmentsService {
         entityId: BigInt(attachment.correspondenceId),
         oldValues: { originalName: attachment.originalName },
         ip,
+        userAgent,
       });
     }
 

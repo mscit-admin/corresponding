@@ -67,6 +67,7 @@ export class LogsService {
         oldValues: r.oldValues,
         newValues: r.newValues,
         ipAddress: r.ipAddress,
+        userAgent: r.userAgent,
         createdAt: r.createdAt,
       })),
     };

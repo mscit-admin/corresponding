@@ -25,6 +25,25 @@ export function formatDateTimeAr(date: string | Date): string {
   }).format(d);
 }
 
+/** يحوّل User-Agent إلى وصف مختصر للجهاز/المتصفّح بالعربية. */
+export function deviceLabel(ua?: string | null): string {
+  if (!ua) return '';
+  let os = '';
+  if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iOS/i.test(ua)) os = 'iOS';
+  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'Mac';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+  let br = '';
+  if (/Edg\//i.test(ua)) br = 'Edge';
+  else if (/OPR\/|Opera/i.test(ua)) br = 'Opera';
+  else if (/Chrome\//i.test(ua)) br = 'Chrome';
+  else if (/Firefox\//i.test(ua)) br = 'Firefox';
+  else if (/Safari\//i.test(ua)) br = 'Safari';
+  const parts = [br, os].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'جهاز غير معروف';
+}
+
 export function timeAgoAr(date: string | Date): string {
   const d = new Date(date);
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);

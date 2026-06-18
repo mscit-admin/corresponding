@@ -7,7 +7,7 @@ import {
   IconHistory, IconLoader2, IconChevronRight, IconChevronLeft, IconShieldLock,
 } from '@tabler/icons-react';
 import { logsApi, LogEntry } from '@/lib/api';
-import { formatDateTimeAr } from '@/lib/utils';
+import { formatDateTimeAr, deviceLabel } from '@/lib/utils';
 
 type Kind = 'audit' | 'access';
 
@@ -148,6 +148,7 @@ export function LogsView({ kind }: { kind: Kind }) {
                 <th className="text-right font-medium px-3 py-2">التفاصيل</th>
                 <th className="text-right font-medium px-3 py-2">المستخدم</th>
                 {isAccess && <th className="text-right font-medium px-3 py-2">IP</th>}
+                {isAccess && <th className="text-right font-medium px-3 py-2">الجهاز</th>}
                 <th className="text-right font-medium px-3 py-2">الوقت</th>
               </tr>
             </thead>
@@ -165,6 +166,7 @@ export function LogsView({ kind }: { kind: Kind }) {
                     {e.actorDepartment && <div className="text-[10px] text-slate-400">{e.actorDepartment}</div>}
                   </td>
                   {isAccess && <td className="px-3 py-2 text-[11px] text-slate-500 font-mono whitespace-nowrap">{e.ipAddress || '—'}</td>}
+                  {isAccess && <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">{deviceLabel(e.userAgent) || '—'}</td>}
                   <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">{formatDateTimeAr(e.createdAt)}</td>
                 </tr>
               ))}

@@ -103,6 +103,7 @@ export interface AuditEntry {
   oldValues: Record<string, any> | null;
   newValues: Record<string, any> | null;
   ipAddress?: string;
+  userAgent?: string | null;
   createdAt: string;
 }
 
@@ -116,6 +117,7 @@ export interface LogEntry {
   oldValues: Record<string, any> | null;
   newValues: Record<string, any> | null;
   ipAddress: string;
+  userAgent?: string | null;
   createdAt: string;
 }
 

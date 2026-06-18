@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { incomingApi, AuditEntry } from '@/lib/api';
-import { formatDateTimeAr } from '@/lib/utils';
+import { formatDateTimeAr, deviceLabel } from '@/lib/utils';
 
 const FIELD_LABELS: Record<string, string> = {
   receivedAt: 'تاريخ الورود', registryNo: 'رقم القيد', senderEntityId: 'الجهة المرسِلة',
@@ -98,6 +98,7 @@ function ChangeRow({ entry, onRestore, restoring }: {
       <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5 flex-wrap">
         <span className="text-slate-500">{entry.actorName || 'غير معروف'}</span>
         {entry.ipAddress && entry.ipAddress !== '0.0.0.0' && <span className="font-mono">· {entry.ipAddress}</span>}
+        {deviceLabel(entry.userAgent) && <span>· {deviceLabel(entry.userAgent)}</span>}
         <span>· {formatDateTimeAr(entry.createdAt)}</span>
       </div>
 
