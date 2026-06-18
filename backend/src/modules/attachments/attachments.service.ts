@@ -1,7 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { join } from 'path';
-import { existsSync, unlinkSync } from 'fs';
+import { join, basename, extname } from 'path';
+import { existsSync, unlinkSync, mkdirSync } from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { PrismaService } from '../prisma/prisma.service';
+
+const execFileP = promisify(execFile);
+
+const OFFICE_MIME = new Set([
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
 
 const serializeBigInt = (obj: any) =>
   JSON.parse(JSON.stringify(obj, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
@@ -9,6 +20,8 @@ const serializeBigInt = (obj: any) =>
 @Injectable()
 export class AttachmentsService {
   private readonly logger = new Logger(AttachmentsService.name);
+  private readonly UPLOADS = join(process.cwd(), 'uploads');
+  private readonly CACHE = join(process.cwd(), 'uploads', 'cache');
 
   constructor(private prisma: PrismaService) {}
 
@@ -118,6 +131,55 @@ export class AttachmentsService {
     }));
   }
 
+  /**
+   * يُعيد ملفاً قابلاً للمعاينة داخل النظام:
+   * - PDF/صورة: الملف الأصلي كما هو.
+   * - Word/Excel: يُحوّل إلى PDF (مرّة واحدة ويُخزَّن مؤقتاً) ثم يُعاد.
+   * يُعيد null إن لم يكن النوع قابلاً للمعاينة أو الملف مفقود.
+   */
+  async getPreviewFile(
+    id: string,
+  ): Promise<{ path: string; mimeType: string; originalName: string } | null> {
+    const att = await this.findById(id);
+    if (!att) return null;
+
+    const src = join(this.UPLOADS, att.fileName);
+    if (!existsSync(src)) return null;
+
+    if (att.mimeType === 'application/pdf' || att.mimeType?.startsWith('image/')) {
+      return { path: src, mimeType: att.mimeType, originalName: att.originalName };
+    }
+
+    if (OFFICE_MIME.has(att.mimeType)) {
+      if (!existsSync(this.CACHE)) mkdirSync(this.CACHE, { recursive: true });
+      const base = basename(att.fileName, extname(att.fileName));
+      const outPdf = join(this.CACHE, `${base}.pdf`);
+      if (!existsSync(outPdf)) {
+        await this.convertToPdf(src, this.CACHE);
+        if (!existsSync(outPdf)) throw new Error('PDF conversion produced no output');
+      }
+      const pdfName = att.originalName.replace(/\.[^.]+$/, '') + '.pdf';
+      return { path: outPdf, mimeType: 'application/pdf', originalName: pdfName };
+    }
+
+    return null; // نوع غير قابل للمعاينة
+  }
+
+  /** يحوّل ملف Office إلى PDF عبر LibreOffice headless (ملف مخرَج: نفس الاسم بامتداد pdf). */
+  private async convertToPdf(inputPath: string, outDir: string): Promise<void> {
+    const profile = `file:///tmp/lo_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+    this.logger.log(`Converting to PDF via LibreOffice: ${inputPath}`);
+    await execFileP(
+      'soffice',
+      [
+        '--headless', '--norestore', '--nolockcheck',
+        `-env:UserInstallation=${profile}`,
+        '--convert-to', 'pdf', '--outdir', outDir, inputPath,
+      ],
+      { timeout: 90_000, env: { ...process.env, HOME: '/tmp' } },
+    );
+  }
+
   async remove(id: string): Promise<boolean> {
     const attachment = await this.findById(id);
     if (!attachment) return false;
@@ -125,11 +187,12 @@ export class AttachmentsService {
     // delete the DB row
     await this.prisma.$executeRawUnsafe(`DELETE FROM attachments WHERE id = ?`, BigInt(id));
 
-    // best-effort delete of the file on disk
+    // best-effort delete of the file on disk (and any cached PDF preview)
     try {
-      const uploadsDir = join(process.cwd(), 'uploads');
-      const filePath = join(uploadsDir, attachment.fileName);
+      const filePath = join(this.UPLOADS, attachment.fileName);
       if (existsSync(filePath)) unlinkSync(filePath);
+      const cachedPdf = join(this.CACHE, `${basename(attachment.fileName, extname(attachment.fileName))}.pdf`);
+      if (existsSync(cachedPdf)) unlinkSync(cachedPdf);
     } catch (e) {
       this.logger.warn(`Could not delete file for attachment ${id}: ${e.message}`);
     }

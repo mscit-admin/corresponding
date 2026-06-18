@@ -5,7 +5,9 @@ import {
   IconFileText, IconDownload, IconPhoto, IconLoader2, IconAlertTriangle, IconEye,
   IconMaximize, IconX,
 } from '@tabler/icons-react';
+import { toast } from 'sonner';
 import { attachmentsApi } from '@/lib/api';
+import { fileKind } from '@/lib/uploads';
 import { formatDateTimeAr } from '@/lib/utils';
 import type { Attachment, AttachmentView } from '@/types';
 
@@ -57,14 +59,26 @@ export function DocumentViewer({
       .finally(() => setViewsLoading(false));
   }, [showViewLog, showLog, current?.id]);
 
+  // نوع العرض: صورة مباشرة، PDF (يشمل Word/Excel بعد التحويل)، أو لا معاينة
+  const kind = fileKind(current?.mimeType); // image | pdf | word | excel | other
+  const needsConvert = kind === 'word' || kind === 'excel';
+  const renderAs: 'image' | 'pdf' | 'none' =
+    kind === 'image' ? 'image' : kind === 'pdf' || needsConvert ? 'pdf' : 'none';
+
   useEffect(() => {
-    if (!current) return;
+    if (!current || renderAs === 'none') {
+      setUrl(null);
+      setLoading(false);
+      setError(false);
+      return;
+    }
     let objectUrl: string | null = null;
     setLoading(true);
     setError(false);
     setUrl(null);
-    attachmentsApi
-      .download(current.id)
+    // Word/Excel → نطلب نسخة PDF محوّلة من الخادم؛ الباقي يُحمَّل كما هو
+    const req = needsConvert ? attachmentsApi.preview(current.id) : attachmentsApi.download(current.id);
+    req
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
@@ -75,6 +89,24 @@ export function DocumentViewer({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [current?.id]);
+
+  // تنزيل الملف الأصلي دائماً (وليس نسخة المعاينة المحوّلة)
+  const downloadOriginal = async () => {
+    if (!current) return;
+    try {
+      const blob = await attachmentsApi.download(current.id);
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = current.originalName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(u);
+    } catch {
+      toast.error('تعذّر تنزيل الملف');
+    }
+  };
 
   if (!attachments || attachments.length === 0) {
     return (
@@ -90,8 +122,7 @@ export function DocumentViewer({
     );
   }
 
-  const isPdf = current?.mimeType === 'application/pdf';
-  const isImage = current?.mimeType?.startsWith('image/');
+  const isImage = renderAs === 'image';
 
   return (
     <div className="card overflow-hidden p-0">
@@ -115,16 +146,14 @@ export function DocumentViewer({
               <IconEye className="w-3.5 h-3.5" /> سجل الفتح
             </button>
           )}
-          {url && (isImage || isPdf) && (
+          {url && renderAs !== 'none' && (
             <button type="button" onClick={() => setZoom(true)} className="btn text-xs py-1" title="معاينة مكبّرة داخل النظام">
               <IconMaximize className="w-3.5 h-3.5" /> معاينة
             </button>
           )}
-          {url && (
-            <a href={url} download={current?.originalName} className="btn text-xs py-1" title="تنزيل">
-              <IconDownload className="w-3.5 h-3.5" /> تنزيل
-            </a>
-          )}
+          <button type="button" onClick={downloadOriginal} className="btn text-xs py-1" title="تنزيل الملف الأصلي">
+            <IconDownload className="w-3.5 h-3.5" /> تنزيل
+          </button>
         </div>
       </div>
 
@@ -147,35 +176,46 @@ export function DocumentViewer({
 
       {/* Preview area */}
       <div className="bg-slate-100 min-h-[20rem] flex items-center justify-center">
-        {loading && (
-          <div className="flex flex-col items-center gap-2 text-slate-400 py-16">
-            <IconLoader2 className="w-8 h-8 animate-spin" />
-            <div className="text-xs">جارٍ تحميل المستند...</div>
+        {renderAs === 'none' ? (
+          <div className="flex flex-col items-center gap-3 text-slate-500 py-16">
+            <IconFileText className="w-12 h-12" />
+            <div className="text-xs">لا يمكن معاينة هذا النوع من الملفات داخل النظام</div>
+            <button type="button" onClick={downloadOriginal} className="btn-primary text-xs">
+              <IconDownload className="w-4 h-4" /> تنزيل الملف
+            </button>
           </div>
-        )}
+        ) : (
+          <>
+            {loading && (
+              <div className="flex flex-col items-center gap-2 text-slate-400 py-16">
+                <IconLoader2 className="w-8 h-8 animate-spin" />
+                <div className="text-xs">
+                  {needsConvert ? 'جارٍ تحضير المعاينة (تحويل إلى PDF)…' : 'جارٍ تحميل المستند…'}
+                </div>
+              </div>
+            )}
 
-        {error && !loading && (
-          <div className="flex flex-col items-center gap-2 text-red-500 py-16">
-            <IconAlertTriangle className="w-8 h-8" />
-            <div className="text-xs">تعذّر تحميل المستند</div>
-          </div>
-        )}
+            {error && !loading && (
+              <div className="flex flex-col items-center gap-3 text-red-500 py-16">
+                <IconAlertTriangle className="w-8 h-8" />
+                <div className="text-xs">
+                  {needsConvert ? 'تعذّر تحضير معاينة هذا الملف' : 'تعذّر تحميل المستند'}
+                </div>
+                <button type="button" onClick={downloadOriginal} className="btn text-xs text-slate-700">
+                  <IconDownload className="w-4 h-4" /> تنزيل الملف الأصلي
+                </button>
+              </div>
+            )}
 
-        {url && !loading && !error && (
-          isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt={current?.originalName} className="max-h-[75vh] w-auto object-contain" />
-          ) : isPdf ? (
-            <iframe src={url} title={current?.originalName} className="w-full h-[75vh] bg-white" />
-          ) : (
-            <div className="flex flex-col items-center gap-3 text-slate-500 py-16">
-              <IconFileText className="w-12 h-12" />
-              <div className="text-xs">لا يمكن معاينة هذا النوع من الملفات</div>
-              <a href={url} download={current?.originalName} className="btn-primary text-xs">
-                <IconDownload className="w-4 h-4" /> تنزيل الملف
-              </a>
-            </div>
-          )
+            {url && !loading && !error && (
+              isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={url} alt={current?.originalName} className="max-h-[75vh] w-auto object-contain" />
+              ) : (
+                <iframe src={url} title={current?.originalName} className="w-full h-[75vh] bg-white" />
+              )
+            )}
+          </>
         )}
       </div>
 

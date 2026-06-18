@@ -21,8 +21,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Prisma query engine needs libssl/openssl available at runtime on Alpine
-RUN apk add --no-cache openssl
+# Prisma query engine needs libssl/openssl available at runtime on Alpine.
+# LibreOffice (+ Arabic fonts + JRE) converts Word/Excel to PDF for in-system
+# preview. This enlarges the image noticeably but is required for previews.
+RUN apk add --no-cache \
+    openssl \
+    libreoffice \
+    openjdk17-jre-headless \
+    font-noto font-noto-arabic ttf-dejavu fontconfig \
+ && fc-cache -f
 
 # ts-node (used to run the seed) needs a shell; alpine already has /bin/sh
 # Copy build output and everything required to run migrations + seed at start.

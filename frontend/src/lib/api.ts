@@ -175,6 +175,9 @@ export const attachmentsApi = {
   // Fetch an attachment as a Blob (sends the JWT via the axios interceptor)
   download: (id: string) =>
     api.get(`/attachments/${id}/download`, { responseType: 'blob' }).then((r) => r.data as Blob),
+  // Fetch a previewable version (Word/Excel converted to PDF on the server)
+  preview: (id: string) =>
+    api.get(`/attachments/${id}/preview`, { responseType: 'blob' }).then((r) => r.data as Blob),
   // سجلّ من فتح المستند ومتى (متاح للأدمن الرئيسي فقط)
   views: (id: string) =>
     api.get<AttachmentView[]>(`/attachments/${id}/views`).then((r) => r.data),

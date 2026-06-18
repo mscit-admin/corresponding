@@ -97,6 +97,25 @@ export class AttachmentsController {
     return res.sendFile(filePath);
   }
 
+  @Get(':id/preview')
+  @ApiOperation({ summary: 'معاينة مرفق داخل النظام (يحوّل Word/Excel إلى PDF)' })
+  async preview(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
+    let file: { path: string; mimeType: string; originalName: string } | null;
+    try {
+      file = await this.service.getPreviewFile(id);
+    } catch (e: any) {
+      throw new BadRequestException('تعذّر تجهيز معاينة لهذا الملف');
+    }
+    if (!file) throw new NotFoundException('لا يمكن معاينة هذا الملف');
+
+    const userId = req.user?.id || req.user?.sub || req.user?.userId;
+    await this.service.recordView(id, userId);
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.originalName)}"`);
+    return res.sendFile(file.path);
+  }
+
   @Get(':id/views')
   @ApiOperation({ summary: 'سجلّ من فتح المستند ومتى (للأدمن الرئيسي فقط)' })
   async views(@Param('id') id: string, @Req() req: any) {
