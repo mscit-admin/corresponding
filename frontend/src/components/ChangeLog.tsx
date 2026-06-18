@@ -38,6 +38,23 @@ const ENUM_LABELS: Record<string, string> = {
 
 const DATE_FIELDS = ['receivedAt', 'originalDate'];
 
+function formatBytes(n?: number): string {
+  const b = Number(n || 0);
+  if (!b) return '—';
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function mimeLabel(mime?: string): string {
+  if (!mime) return 'ملف';
+  if (mime === 'application/pdf') return 'PDF';
+  if (mime.startsWith('image/')) return 'صورة';
+  if (mime.includes('word') || mime === 'application/msword') return 'Word';
+  if (mime.includes('spreadsheet') || mime.includes('excel')) return 'Excel';
+  return 'ملف';
+}
+
 function fmtValue(field: string, val: any): string {
   if (val === null || val === undefined || val === '') return '—';
   const s = String(val);
@@ -79,31 +96,58 @@ function ActionHeader({ entry }: { entry: AuditEntry }) {
 
 function EntryBody({ entry }: { entry: AuditEntry }) {
   if (entry.action === 'ATTACHMENT_ADDED') {
-    return <div className="text-xs text-slate-600">الملف: <span className="font-medium">{entry.newValues?.originalName || '—'}</span></div>;
+    return (
+      <div className="text-xs bg-green-50 border border-green-100 rounded-md p-2.5 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-500">اسم المستند:</span>
+          <span className="font-semibold text-slate-800 break-all">{entry.newValues?.originalName || '—'}</span>
+        </div>
+        <div className="text-[11px] text-slate-500">
+          النوع: <span className="font-medium">{mimeLabel(entry.newValues?.mimeType)}</span>
+          {' · '}الحجم: <span className="font-medium">{formatBytes(entry.newValues?.fileSize)}</span>
+        </div>
+      </div>
+    );
   }
   if (entry.action === 'ATTACHMENT_DELETED') {
-    return <div className="text-xs text-slate-600">الملف: <span className="font-medium">{entry.oldValues?.originalName || '—'}</span></div>;
+    return (
+      <div className="text-xs bg-red-50 border border-red-100 rounded-md p-2.5">
+        <span className="text-slate-500">المستند المحذوف: </span>
+        <span className="font-semibold text-slate-800 break-all">{entry.oldValues?.originalName || '—'}</span>
+      </div>
+    );
   }
-  // UPDATE — اعرض الحقول المتغيّرة (قديم ← جديد)
+  // UPDATE / RESTORE — اعرض الحقول المتغيّرة (السابق ← الجديد) بوضوح
   const fields = Object.keys(entry.newValues || {});
   if (!fields.length) return <div className="text-xs text-slate-400">لا تفاصيل</div>;
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {fields.map((f) => (
-        <div key={f} className="text-xs flex flex-wrap items-center gap-1.5">
-          <span className="font-medium text-slate-700">{FIELD_LABELS[f] || f}:</span>
-          <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 line-through decoration-1">
-            {fmtValue(f, entry.oldValues?.[f])}
-          </span>
-          <IconArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-          <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700">
-            {fmtValue(f, entry.newValues?.[f])}
-          </span>
+        <div key={f} className="text-xs bg-slate-50 rounded-md p-2.5">
+          <div className="font-semibold text-slate-700 mb-1.5">{FIELD_LABELS[f] || f}</div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[11px] text-slate-500">السابق:</span>
+            <span className="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 line-through decoration-1">
+              {fmtValue(f, entry.oldValues?.[f])}
+            </span>
+            <IconArrowLeft className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-[11px] text-slate-500">الجديد:</span>
+            <span className="px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 font-medium">
+              {fmtValue(f, entry.newValues?.[f])}
+            </span>
+          </div>
         </div>
       ))}
     </div>
   );
 }
+
+const ACCENT: Record<string, string> = {
+  ATTACHMENT_ADDED: 'border-r-green-400',
+  ATTACHMENT_DELETED: 'border-r-red-400',
+  RESTORE: 'border-r-amber-400',
+  UPDATE: 'border-r-brand-400',
+};
 
 /** سجلّ التعديلات التفصيلي — يظهر لمدير النظام فقط. */
 export function ChangeLog({ id }: { id: string }) {
@@ -139,30 +183,35 @@ export function ChangeLog({ id }: { id: string }) {
       ) : (
         <div className="space-y-3">
           {data.map((entry) => (
-            <div key={entry.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0 space-y-1.5">
+            <div
+              key={entry.id}
+              className={`rounded-lg border border-slate-200 border-r-4 ${ACCENT[entry.action] || 'border-r-slate-300'} bg-white p-3 space-y-2`}
+            >
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-xs font-semibold"><ActionHeader entry={entry} /></div>
-                <div className="flex items-center gap-2">
-                  {(entry.action === 'UPDATE' || entry.action === 'RESTORE') && entry.oldValues && Object.keys(entry.oldValues).length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm('استرجاع البيانات إلى ما كانت عليه قبل هذا التعديل؟')) restore.mutate(entry.id);
-                      }}
-                      disabled={restore.isPending}
-                      className="text-[11px] text-brand-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50"
-                      title="الرجوع لهذه الحالة"
-                    >
-                      <IconArrowBackUp className="w-3.5 h-3.5" /> استرجاع
-                    </button>
-                  )}
-                  <div className="text-[11px] text-slate-400">{formatDateTimeAr(entry.createdAt)}</div>
-                </div>
+                <div className="text-sm font-semibold"><ActionHeader entry={entry} /></div>
+                {(entry.action === 'UPDATE' || entry.action === 'RESTORE') && entry.oldValues && Object.keys(entry.oldValues).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('استرجاع البيانات إلى ما كانت عليه قبل هذا التعديل؟')) restore.mutate(entry.id);
+                    }}
+                    disabled={restore.isPending}
+                    className="text-[11px] text-white bg-brand-600 hover:bg-brand-700 rounded px-2 py-1 inline-flex items-center gap-1 disabled:opacity-50"
+                    title="الرجوع لهذه الحالة"
+                  >
+                    <IconArrowBackUp className="w-3.5 h-3.5" /> استرجاع
+                  </button>
+                )}
               </div>
+
               <EntryBody entry={entry} />
-              <div className="text-[11px] text-slate-500">
-                بواسطة: <span className="font-medium">{entry.actorName || 'غير معروف'}</span>
-                {entry.actorDepartment ? ` · ${entry.actorDepartment}` : ''}
+
+              <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                <span>
+                  بواسطة: <span className="font-medium text-slate-700">{entry.actorName || 'غير معروف'}</span>
+                  {entry.actorDepartment ? ` · ${entry.actorDepartment}` : ''}
+                </span>
+                <span>{formatDateTimeAr(entry.createdAt)}</span>
               </div>
             </div>
           ))}
