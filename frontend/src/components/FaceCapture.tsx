@@ -27,9 +27,16 @@ export function FaceCapture({
   const rafRef = useRef<number | null>(null);
   const blinkRef = useRef<{ sawOpen: boolean; sawClosed: boolean }>({ sawOpen: false, sawClosed: false });
   const doneRef = useRef(false);
+  const phaseRef = useRef<Phase>('loading');
 
-  const [phase, setPhase] = useState<Phase>('loading');
+  const [phase, setPhaseState] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
+
+  // نحدّث المرجع مع الحالة معاً ليقرأ الـloop القيمة الحيّة (لا المجمّدة بالإغلاق)
+  const setPhase = useCallback((p: Phase) => {
+    phaseRef.current = p;
+    setPhaseState(p);
+  }, []);
 
   const cleanup = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -51,8 +58,9 @@ export function FaceCapture({
       if (!video || doneRef.current || cancelled) return;
       try {
         const face = await detectFace(video);
+        if (cancelled || doneRef.current) return; // أُلغي أثناء الانتظار
         if (face) {
-          if (phase === 'searching' || phase === 'loading') setPhase('blink');
+          if (phaseRef.current !== 'blink') setPhase('blink');
           // كشف الحياة: عين مفتوحة ← مغلقة ← مفتوحة (رمشة)
           const b = blinkRef.current;
           if (face.ear > EAR_OPEN) {
@@ -61,6 +69,7 @@ export function FaceCapture({
               doneRef.current = true;
               setPhase('capturing');
               const finalFace = await detectFace(video);
+              if (cancelled) return;
               const descriptor = (finalFace || face).descriptor;
               setPhase('done');
               cleanup();
@@ -71,7 +80,7 @@ export function FaceCapture({
           } else if (face.ear < EAR_CLOSED && b.sawOpen) {
             b.sawClosed = true;
           }
-        } else if (phase !== 'searching' && phase !== 'loading') {
+        } else if (phaseRef.current !== 'searching') {
           setPhase('searching');
         }
       } catch {

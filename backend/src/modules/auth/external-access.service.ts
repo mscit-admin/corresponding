@@ -77,20 +77,31 @@ export class ExternalAccessService {
       });
     }
 
+    // 1) تصريح ساري؟ نستخدم نفس منطق الحارس (أحدث طلب معتمَد) لضمان التطابق
+    //    بين بوّابة الدخول والحارس أثناء الجلسة.
+    const activeGrant = await this.prisma.externalAccessRequest.findFirst({
+      where: { userId: user.id, deviceId, status: 'approved' },
+      orderBy: { decidedAt: 'desc' },
+    });
+    if (
+      activeGrant &&
+      (activeGrant.grantType === 'open' ||
+        (!!activeGrant.grantUntil && activeGrant.grantUntil.getTime() > Date.now()))
+    ) {
+      void this.prisma.externalAccessRequest
+        .update({ where: { id: activeGrant.id }, data: { lastSeenAt: new Date() } })
+        .catch((e) => this.logger.warn(`lastSeen update failed: ${e.message}`));
+      return; // مسموح
+    }
+
+    // 2) لا يوجد تصريح ساري — نحدّد الرسالة من أحدث طلب لهذا الجهاز.
     const req = await this.prisma.externalAccessRequest.findFirst({
       where: { userId: user.id, deviceId },
       orderBy: { createdAt: 'desc' },
     });
 
     if (req?.status === 'approved') {
-      const valid = req.grantType === 'open' || (!!req.grantUntil && req.grantUntil.getTime() > Date.now());
-      if (valid) {
-        void this.prisma.externalAccessRequest
-          .update({ where: { id: req.id }, data: { lastSeenAt: new Date() } })
-          .catch((e) => this.logger.warn(`lastSeen update failed: ${e.message}`));
-        return; // مسموح
-      }
-      // انتهت صلاحية التصريح — علّمه منتهياً واطلب طلباً جديداً
+      // معتمَد لكنه منتهٍ (لم يُلتقَط أعلاه) — علّمه منتهياً واطلب طلباً جديداً
       void this.prisma.externalAccessRequest
         .update({ where: { id: req.id }, data: { status: 'expired' } })
         .catch(() => undefined);
@@ -203,21 +214,24 @@ export class ExternalAccessService {
           data: { userId: user.id, deviceId, ...data },
         });
 
-    await this.notifications
-      .notifySuperAdmins({
-        type: 'approval',
-        title: `طلب دخول خارجي — ${user.fullNameAr || user.fullName}`,
-        body:
-          `الموظف: ${user.fullNameAr || user.fullName}\n` +
-          `الرقم الوظيفي: ${user.username}\n` +
-          `الإدارة: ${user.department?.name || '—'}\n` +
-          `عنوان IP: ${ctx.ipAddress}` +
-          (ctx.deviceHost ? `\nالجهاز: ${ctx.deviceHost}` : ''),
-        actionUrl: '/admin/external-requests',
-        relatedType: 'ExternalAccessRequest',
-        relatedId: record.id,
-      })
-      .catch((e) => this.logger.warn(`notify admins (external request) failed: ${e.message}`));
+    const cfg = await this.access.getConfig();
+    if (cfg.notifyExternal) {
+      await this.notifications
+        .notifySuperAdmins({
+          type: 'approval',
+          title: `طلب دخول خارجي — ${user.fullNameAr || user.fullName}`,
+          body:
+            `الموظف: ${user.fullNameAr || user.fullName}\n` +
+            `الرقم الوظيفي: ${user.username}\n` +
+            `الإدارة: ${user.department?.name || '—'}\n` +
+            `عنوان IP: ${ctx.ipAddress}` +
+            (ctx.deviceHost ? `\nالجهاز: ${ctx.deviceHost}` : ''),
+          actionUrl: '/admin/external-requests',
+          relatedType: 'ExternalAccessRequest',
+          relatedId: record.id,
+        })
+        .catch((e) => this.logger.warn(`notify admins (external request) failed: ${e.message}`));
+    }
 
     void this.prisma.auditLog
       .create({

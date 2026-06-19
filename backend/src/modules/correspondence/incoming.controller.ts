@@ -93,8 +93,14 @@ export class IncomingController {
 
   @Post(':id/approve')
   @ApiOperation({ summary: 'اعتماد المعاملة (للمدير)' })
-  async approve(@Param('id') id: string, @Body() dto: ActionDto, @CurrentUser() user: AuthUser) {
-    return this.incomingService.act(BigInt(id), 'approve', dto, user);
+  async approve(
+    @Param('id') id: string,
+    @Body() dto: ActionDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '0.0.0.0';
+    return this.incomingService.act(BigInt(id), 'approve', dto, user, ip);
   }
 
   @Post(':id/reject')

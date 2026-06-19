@@ -676,7 +676,7 @@ export class IncomingService {
    * يتحقّق من هوية المُعتمِد قبل اعتماد المعاملة، حسب الطريقة المُفعّلة:
    * رمز بريد (email) و/أو بصمة وجه (face) أو أيّهما (both).
    */
-  private async verifyApproval(userIdBig: bigint, idBig: bigint, data: any): Promise<void> {
+  private async verifyApproval(userIdBig: bigint, idBig: bigint, data: any, ip?: string): Promise<void> {
     const method = (await this.access.getConfig()).approvalVerifyMethod;
     const hasOtp = typeof data?.otpCode === 'string' && data.otpCode.trim().length > 0;
     const hasFace = Array.isArray(data?.faceDescriptor);
@@ -691,7 +691,7 @@ export class IncomingService {
             action,
             entityType: 'IncomingCorrespondence',
             entityId: idBig,
-            ipAddress: '0.0.0.0',
+            ipAddress: ip || '0.0.0.0',
             newValues: newValues ?? undefined,
           },
         })
@@ -734,7 +734,7 @@ export class IncomingService {
     });
   }
 
-  async act(id: any, action: string, data: any, user: any) {
+  async act(id: any, action: string, data: any, user: any, ip?: string) {
     const roleName = user?.role?.name;
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
     const userIdBig = BigInt(user.id);
@@ -788,7 +788,7 @@ export class IncomingService {
 
     // ---- الاعتماد (التوقيع) يتطلّب تحقّقاً إضافياً: رمز بريد و/أو بصمة وجه ----
     if (action === 'approve') {
-      await this.verifyApproval(userIdBig, idBig, data);
+      await this.verifyApproval(userIdBig, idBig, data, ip);
     }
 
     // ---- Apply status change (if any) ----
