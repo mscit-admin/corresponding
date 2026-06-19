@@ -6,11 +6,12 @@ import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconHome, IconInbox,
   IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
-  IconHistory, IconShieldLock, IconDeviceDesktop,
+  IconHistory, IconShieldLock, IconDeviceDesktop, IconClockHour4,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import { refreshDeviceInfo } from '@/lib/device';
+import { accessApi } from '@/lib/api';
 import { canManageAiSettings } from '@/lib/permissions';
 import { NotificationBell } from '@/components/NotificationBell';
 
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { href: '/admin/audit-log', label: 'سجلّ التعديلات', icon: IconHistory, superAdminOnly: true },
   { href: '/admin/access-log', label: 'سجلّ الوصول', icon: IconShieldLock, superAdminOnly: true },
   { href: '/admin/device-approvals', label: 'اعتماد الأجهزة', icon: IconDeviceDesktop, superAdminOnly: true },
+  { href: '/admin/access-settings', label: 'وقت الدوام والوصول', icon: IconClockHour4, superAdminOnly: true },
   { href: '/settings', label: 'الإعدادات', icon: IconSettings, disabled: true },
 ];
 
@@ -52,6 +54,25 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (token) void refreshDeviceInfo();
   }, [token]);
+
+  // قفل تلقائي: فحص دوري لسياسة الوصول (وقت الدوام للأجهزة الخارجية)
+  useEffect(() => {
+    if (!token) return;
+    let stop = false;
+    const check = async () => {
+      try {
+        const p = await accessApi.policy();
+        if (!stop && !p.allowed && !p.exempt) {
+          try { sessionStorage.setItem('gsdms-lock-reason', 'OUTSIDE_HOURS'); } catch { /* ignore */ }
+          logout();
+          router.push('/login');
+        }
+      } catch { /* الـinterceptor يتولّى 401/403 */ }
+    };
+    void check();
+    const id = setInterval(check, 60_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [token, logout, router]);
 
   if (!token || !user) return null;
 

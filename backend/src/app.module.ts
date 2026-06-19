@@ -10,6 +10,7 @@ import { ReferenceModule } from './modules/reference/reference.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AiModule } from './modules/ai/ai.module';
 import { LogsModule } from './modules/logs/logs.module';
+import { AccessModule } from './modules/access/access.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -36,6 +37,7 @@ import configuration from './config/configuration';
     NotificationsModule,
     AiModule,
     LogsModule,
+    AccessModule,
   ],
 })
 export class AppModule {}

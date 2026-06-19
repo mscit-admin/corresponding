@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AccessService } from '../access/access.service';
 import { LoginDto, LoginResponseDto } from './dto/login.dto';
 
 /** سياق الجهاز المرسَل مع الطلب (من الترويسات). */
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
+    private readonly access: AccessService,
   ) {}
 
   async login(dto: LoginDto, ipAddress: string, userAgent?: string, deviceMac?: string, deviceHost?: string, deviceId?: string): Promise<LoginResponseDto> {
@@ -81,6 +83,7 @@ export class AuthService {
         deviceHost,
         deviceId,
       });
+      await this.enforceAccessWindow(user, { ipAddress, userAgent, deviceHost, deviceMac, deviceId });
     }
 
     // Update last login + audit success in the background so the response is
@@ -195,6 +198,65 @@ export class AuthService {
       message: 'تم اكتشاف دخول من جهاز/متصفّح جديد. يرجى إدخال سبب الدخول لإرساله إلى مدير النظام للموافقة.',
       fullName,
     });
+  }
+
+  /**
+   * يطبّق سياسة وقت الدوام وموقع الجهاز عند الدخول:
+   *  - أجهزة الشركة (ضمن الشبكة): مسموحة دائماً.
+   *  - الأجهزة الخارجية: يُرسَل إشعار لمدير النظام، وتُمنع خارج وقت الدوام.
+   */
+  private async enforceAccessWindow(
+    user: { id: bigint; username: string; fullName: string; fullNameAr?: string | null; department?: { name: string } | null },
+    ctx: DeviceContext,
+  ): Promise<void> {
+    const policy = await this.access.evaluate(ctx.ipAddress);
+    if (policy.companyDevice) return; // جهاز داخل الشركة — مسموح دائماً
+
+    const config = await this.access.getConfig();
+    const name = user.fullNameAr || user.fullName;
+    const blocked = !policy.allowed;
+
+    if (config.notifyExternal) {
+      await this.notifications
+        .notifySuperAdmins({
+          type: 'system',
+          title: `دخول من جهاز خارج الشبكة — ${name}`,
+          body:
+            `الموظف: ${name}\n` +
+            `الرقم الوظيفي: ${user.username}\n` +
+            `الإدارة: ${user.department?.name || '—'}\n` +
+            `عنوان IP: ${ctx.ipAddress}` +
+            (ctx.deviceHost ? `\nالجهاز: ${ctx.deviceHost}` : '') +
+            (blocked ? `\nالحالة: مرفوض (خارج وقت الدوام ${policy.start}-${policy.end})` : '\nالحالة: مسموح (ضمن وقت الدوام)'),
+          actionUrl: '/admin/access-log',
+          relatedType: 'User',
+          relatedId: user.id,
+        })
+        .catch((e) => this.logger.warn(`notify admins (external access) failed: ${e.message}`));
+    }
+
+    void this.prisma.auditLog
+      .create({
+        data: {
+          userId: user.id,
+          action: blocked ? 'EXTERNAL_ACCESS_BLOCKED' : 'EXTERNAL_ACCESS',
+          entityType: 'User',
+          entityId: user.id,
+          ipAddress: ctx.ipAddress,
+          userAgent: ctx.userAgent || null,
+          deviceMac: ctx.deviceMac || null,
+          deviceHost: ctx.deviceHost || null,
+          deviceId: ctx.deviceId || null,
+        },
+      })
+      .catch((e) => this.logger.warn(`Audit (external access) failed: ${e.message}`));
+
+    if (blocked) {
+      throw new ForbiddenException({
+        code: 'OUTSIDE_HOURS',
+        message: `الدخول من خارج الشركة مسموح فقط خلال وقت الدوام (${policy.start} - ${policy.end}). تم إشعار مدير النظام.`,
+      });
+    }
   }
 
   /**

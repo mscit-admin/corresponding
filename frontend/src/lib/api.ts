@@ -24,13 +24,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor - handle 401 (unauthorized)
+// Response interceptor - handle 401 (unauthorized) + 403 OUTSIDE_HOURS (auto-lock)
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
+  (error: AxiosError<{ code?: string }>) => {
+    const status = error.response?.status;
+    const code = error.response?.data?.code;
+    if (status === 401 || (status === 403 && code === 'OUTSIDE_HOURS')) {
       useAuthStore.getState().logout();
       if (typeof window !== 'undefined') {
+        if (code === 'OUTSIDE_HOURS') {
+          try { sessionStorage.setItem('gsdms-lock-reason', 'OUTSIDE_HOURS'); } catch { /* ignore */ }
+        }
         window.location.href = '/login';
       }
     }
@@ -77,6 +82,35 @@ export const deviceApprovalsApi = {
     api.get<DeviceApproval[]>('/auth/device-approvals', { params: status ? { status } : {} }).then((r) => r.data),
   approve: (id: string) => api.post(`/auth/device-approvals/${id}/approve`).then((r) => r.data),
   reject: (id: string) => api.post(`/auth/device-approvals/${id}/reject`).then((r) => r.data),
+};
+
+export interface AccessConfig {
+  enabled: boolean;
+  start: string;
+  end: string;
+  days: number[];
+  timezone: string;
+  companyCidrs: string[];
+  notifyExternal: boolean;
+}
+
+export interface AccessPolicy {
+  companyDevice: boolean;
+  scheduleEnabled: boolean;
+  withinHours: boolean;
+  allowed: boolean;
+  start: string;
+  end: string;
+  timezone: string;
+  nowMinutes: number;
+  exempt: boolean;
+}
+
+export const accessApi = {
+  getSettings: () => api.get<AccessConfig>('/access/settings').then((r) => r.data),
+  updateSettings: (data: Partial<AccessConfig>) =>
+    api.patch<AccessConfig>('/access/settings', data).then((r) => r.data),
+  policy: () => api.get<AccessPolicy>('/access/policy').then((r) => r.data),
 };
 
 export const usersApi = {

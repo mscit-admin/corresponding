@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,6 +35,16 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { username: 'admin', password: 'Admin@1234' },
   });
+
+  // رسالة القفل التلقائي عند الخروج بسبب انتهاء وقت الدوام
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('gsdms-lock-reason') === 'OUTSIDE_HOURS') {
+        sessionStorage.removeItem('gsdms-lock-reason');
+        setError('انتهى وقت الدوام المسموح وتم إنهاء جلستك تلقائياً. يمكنك الدخول خلال أوقات الدوام أو من جهاز داخل الشركة.');
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
