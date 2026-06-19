@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({ example: 'ahmed.mohamed', description: 'اسم المستخدم' })
@@ -71,6 +71,7 @@ export class ExternalLockDto {
   userId: string;
 
   @ApiProperty({ description: 'قفل (true) أو فتح (false) الدخول الخارجي' })
+  @IsBoolean()
   locked: boolean;
 }
 

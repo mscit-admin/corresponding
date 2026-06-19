@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail.service';
@@ -41,7 +42,7 @@ export class OtpService {
       where: { userId: BigInt(userId), purpose, consumedAt: null },
     });
 
-    const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 أرقام
+    const code = String(randomInt(100000, 1000000)); // 6 أرقام بمولّد عشوائي آمن تشفيرياً
     const codeHash = await bcrypt.hash(code, 10);
     await this.prisma.otpCode.create({
       data: {

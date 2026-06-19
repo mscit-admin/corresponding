@@ -163,7 +163,14 @@ export class AccessService {
   }
 
   private normalizeIp(ip: string): string {
-    let s = (ip || '').split(',')[0].trim();
+    // أمنياً: نأخذ آخر عنوان في سلسلة X-Forwarded-For وهو ما يضيفه البروكسي
+    // الموثوق (nginx عبر $proxy_add_x_forwarded_for) ويمثّل العميل الحقيقي.
+    // أخذ أوّل عنوان غير آمن لأنه يمكن للعميل تزويره (انتحال IP داخلي).
+    const parts = (ip || '')
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    let s = parts.length ? parts[parts.length - 1] : '';
     if (s.startsWith('::ffff:')) s = s.slice(7); // IPv4-mapped IPv6
     if (s === '::1') s = '127.0.0.1';
     // إزالة المنفذ إن وُجد على IPv4
