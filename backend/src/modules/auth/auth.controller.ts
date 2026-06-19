@@ -11,6 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthService, DeviceContext } from './auth.service';
 import { ExternalAccessService } from './external-access.service';
@@ -50,6 +51,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'تسجيل الدخول' })
@@ -62,6 +64,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('request-device-approval')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'طلب اعتماد جهاز جديد من مدير النظام' })
@@ -72,6 +75,7 @@ export class AuthController {
   // ===== الدخول الخارجي (من خارج شبكة المؤسسة) =====
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('external/request-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'إرسال رمز تحقّق على بريد المستخدم للدخول الخارجي' })
@@ -80,6 +84,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('external/request')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'تقديم طلب دخول خارجي (اسم ثلاثي + رمز بريد) لمدير النظام' })

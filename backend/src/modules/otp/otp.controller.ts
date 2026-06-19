@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { IsOptional, IsString } from 'class-validator';
 import { OtpService } from './otp.service';
 import { AccessService } from '../access/access.service';
@@ -27,6 +28,7 @@ export class OtpController {
     return { method: cfg.approvalVerifyMethod };
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('request')
   @ApiOperation({ summary: 'إرسال رمز تحقّق على بريد المستخدم' })
   async request(@CurrentUser() user: AuthUser, @Body() dto: RequestOtpDto) {
