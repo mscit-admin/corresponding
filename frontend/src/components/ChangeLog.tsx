@@ -100,6 +100,7 @@ function ChangeRow({ entry, onRestore, restoring }: {
         {entry.ipAddress && entry.ipAddress !== '0.0.0.0' && <span className="font-mono">· {entry.ipAddress}</span>}
         {deviceLabel(entry.userAgent) && <span>· {deviceLabel(entry.userAgent)}</span>}
         {entry.deviceMac && <span className="font-mono">· MAC {entry.deviceMac}</span>}
+        {entry.deviceId && <span className="font-mono">· جهاز {entry.deviceId.slice(0, 8)}</span>}
         <span>· {formatDateTimeAr(entry.createdAt)}</span>
       </div>
 

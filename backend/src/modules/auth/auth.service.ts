@@ -15,7 +15,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async login(dto: LoginDto, ipAddress: string, userAgent?: string, deviceMac?: string, deviceHost?: string): Promise<LoginResponseDto> {
+  async login(dto: LoginDto, ipAddress: string, userAgent?: string, deviceMac?: string, deviceHost?: string, deviceId?: string): Promise<LoginResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { username: dto.username },
       include: {
@@ -46,6 +46,7 @@ export class AuthService {
             userAgent,
             deviceMac: deviceMac || null,
             deviceHost: deviceHost || null,
+            deviceId: deviceId || null,
           },
         })
         .catch((e) => this.logger.warn(`Audit (LOGIN_FAILED) failed: ${e.message}`));
@@ -69,6 +70,7 @@ export class AuthService {
           userAgent,
           deviceMac: deviceMac || null,
           deviceHost: deviceHost || null,
+          deviceId: deviceId || null,
         },
       })
       .catch((e) => this.logger.warn(`Audit (LOGIN_SUCCESS) failed: ${e.message}`));

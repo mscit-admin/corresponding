@@ -577,6 +577,7 @@ model AuditLog {
   userAgent  String?  @map("user_agent") @db.Text
   deviceMac  String?  @map("device_mac") @db.VarChar(64)
   deviceHost String?  @map("device_host") @db.VarChar(150)
+  deviceId   String?  @map("device_id") @db.VarChar(64)
   sessionId  String?  @map("session_id") @db.VarChar(100)
   createdAt  DateTime @default(now()) @map("created_at")
 

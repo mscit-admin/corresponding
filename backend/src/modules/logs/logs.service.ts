@@ -70,6 +70,7 @@ export class LogsService {
         userAgent: r.userAgent,
         deviceMac: r.deviceMac,
         deviceHost: r.deviceHost,
+        deviceId: r.deviceId,
         createdAt: r.createdAt,
       })),
     };

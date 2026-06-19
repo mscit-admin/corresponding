@@ -21,6 +21,7 @@ export class AuthController {
     return this.authService.login(
       dto, ip, userAgent,
       req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+      req.headers['x-device-id'] as string,
     );
   }
 }

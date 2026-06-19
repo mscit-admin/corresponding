@@ -39,6 +39,7 @@ export class IncomingController {
     return this.incomingService.findById(
       BigInt(id), user, ip, req.headers['user-agent'],
       req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+      req.headers['x-device-id'] as string,
     );
   }
 
@@ -54,6 +55,7 @@ export class IncomingController {
     return this.incomingService.update(
       BigInt(id), dto, user, ip, 'UPDATE', req.headers['user-agent'],
       req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+      req.headers['x-device-id'] as string,
     );
   }
 
@@ -75,6 +77,7 @@ export class IncomingController {
     return this.incomingService.restoreAudit(
       BigInt(id), BigInt(auditId), user, ip, req.headers['user-agent'],
       req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+      req.headers['x-device-id'] as string,
     );
   }
 

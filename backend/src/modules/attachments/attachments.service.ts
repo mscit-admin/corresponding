@@ -42,8 +42,9 @@ export class AttachmentsService {
     userAgent?: string;
     deviceMac?: string;
     deviceHost?: string;
+    deviceId?: string;
   }) {
-    const { correspondenceType, correspondenceId, file, userId, ip, userAgent, deviceMac, deviceHost } = params;
+    const { correspondenceType, correspondenceId, file, userId, ip, userAgent, deviceMac, deviceHost, deviceId } = params;
     this.logger.log(
       `Saving attachment: ${file.originalname} for ${correspondenceType}#${correspondenceId}`,
     );
@@ -93,6 +94,7 @@ export class AttachmentsService {
       userAgent,
       deviceMac,
       deviceHost,
+      deviceId,
     });
 
     // تنبيه مديري النظام بإضافة مستند (مع رابط لمكان الحدث)
@@ -123,6 +125,7 @@ export class AttachmentsService {
     userAgent?: string;
     deviceMac?: string;
     deviceHost?: string;
+    deviceId?: string;
   }) {
     try {
       await this.prisma.auditLog.create({
@@ -137,6 +140,7 @@ export class AttachmentsService {
           userAgent: p.userAgent || null,
           deviceMac: p.deviceMac || null,
           deviceHost: p.deviceHost || null,
+          deviceId: p.deviceId || null,
         },
       });
     } catch (e: any) {
@@ -252,7 +256,7 @@ export class AttachmentsService {
     );
   }
 
-  async remove(id: string, userId?: any, ip?: string, userAgent?: string, deviceMac?: string, deviceHost?: string): Promise<boolean> {
+  async remove(id: string, userId?: any, ip?: string, userAgent?: string, deviceMac?: string, deviceHost?: string, deviceId?: string): Promise<boolean> {
     const attachment = await this.findById(id);
     if (!attachment) return false;
 
@@ -271,6 +275,7 @@ export class AttachmentsService {
         userAgent,
         deviceMac,
         deviceHost,
+        deviceId,
       });
 
       // تنبيه مديري النظام بحذف مستند

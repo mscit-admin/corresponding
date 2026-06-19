@@ -4,12 +4,27 @@
 // تُخزَّن في localStorage وتُرسل مع طلبات الـAPI لتسجيلها في سجلّ التدقيق.
 
 const KEY = 'gsdms-device';
+const ID_KEY = 'gsdms-device-id';
 const AGENT = process.env.NEXT_PUBLIC_SCANNER_AGENT_URL || 'http://localhost:8723';
 
 export interface DeviceInfo {
   mac?: string;
   localIp?: string;
   hostname?: string;
+}
+
+/** معرّف جهاز ثابت يُولَّد مرّة ويُحفظ في المتصفّح — يعمل على كل الأجهزة بلا تثبيت. */
+export function getDeviceId(): string {
+  if (typeof window === 'undefined') return '';
+  let id = localStorage.getItem(ID_KEY);
+  if (!id) {
+    id =
+      (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    localStorage.setItem(ID_KEY, id);
+  }
+  return id;
 }
 
 export function getCachedDevice(): DeviceInfo {

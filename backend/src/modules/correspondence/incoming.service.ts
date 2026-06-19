@@ -261,7 +261,7 @@ export class IncomingService {
     return serializeBigInt({ data: dataWithCounts, total, skip: Number(skip), take: Number(take) });
   }
 
-  async findById(id: any, user?: any, ip?: string, userAgent?: string, deviceMac?: string, deviceHost?: string) {
+  async findById(id: any, user?: any, ip?: string, userAgent?: string, deviceMac?: string, deviceHost?: string, deviceId?: string) {
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
     const item = await this.prisma.incomingCorrespondence.findUnique({
       where: { id: idBig },
@@ -320,7 +320,7 @@ export class IncomingService {
             data: { incomingId: idBig, actorId: userIdBig, action: 'open' },
           });
           // سجلّ الوصول: أول فتح للمعاملة من هذا المستخدم
-          void this.writeAudit({ userId: userIdBig, action: 'CORRESPONDENCE_VIEWED', entityId: idBig, ip, userAgent, deviceMac, deviceHost });
+          void this.writeAudit({ userId: userIdBig, action: 'CORRESPONDENCE_VIEWED', entityId: idBig, ip, userAgent, deviceMac, deviceHost, deviceId });
         }
       } catch (e) {
         this.logger.warn(`Could not record view: ${e.message}`);
@@ -421,6 +421,7 @@ export class IncomingService {
     userAgent?: string;
     deviceMac?: string;
     deviceHost?: string;
+    deviceId?: string;
   }) {
     try {
       await this.prisma.auditLog.create({
@@ -435,6 +436,7 @@ export class IncomingService {
           userAgent: params.userAgent || null,
           deviceMac: params.deviceMac || null,
           deviceHost: params.deviceHost || null,
+          deviceId: params.deviceId || null,
         },
       });
     } catch (e: any) {
@@ -468,6 +470,7 @@ export class IncomingService {
       userAgent: r.userAgent,
       deviceMac: r.deviceMac,
       deviceHost: r.deviceHost,
+      deviceId: r.deviceId,
       createdAt: r.createdAt,
     }));
   }
@@ -476,7 +479,7 @@ export class IncomingService {
    * يرجع ببيانات المراسلة إلى ما كانت عليه قبل تعديل سابق (من سجلّ التدقيق).
    * لمدير النظام فقط. يُطبّق القيم القديمة عبر update فيُسجَّل الاسترجاع كتعديل جديد.
    */
-  async restoreAudit(id: any, auditId: any, user: any, ip?: string, userAgent?: string, deviceMac?: string, deviceHost?: string) {
+  async restoreAudit(id: any, auditId: any, user: any, ip?: string, userAgent?: string, deviceMac?: string, deviceHost?: string, deviceId?: string) {
     if (user?.role?.name !== 'super_admin') {
       throw new ForbiddenException('الاسترجاع متاح لمدير النظام فقط');
     }
@@ -493,10 +496,10 @@ export class IncomingService {
       throw new BadRequestException('هذا السطر لا يحتوي على بيانات قابلة للاسترجاع');
     }
     // تطبيق القيم القديمة (update يتكفّل بتحويل الأنواع وتسجيل العملية كـ«استرجاع»)
-    return this.update(idBig, entry.oldValues as any, user, ip, 'RESTORE', userAgent, deviceMac, deviceHost);
+    return this.update(idBig, entry.oldValues as any, user, ip, 'RESTORE', userAgent, deviceMac, deviceHost, deviceId);
   }
 
-  async update(id: any, data: any, user: any, ip?: string, auditAction: string = 'UPDATE', userAgent?: string, deviceMac?: string, deviceHost?: string) {
+  async update(id: any, data: any, user: any, ip?: string, auditAction: string = 'UPDATE', userAgent?: string, deviceMac?: string, deviceHost?: string, deviceId?: string) {
     const roleName = user?.role?.name;
     if (!EDIT_ROLES.includes(roleName)) {
       throw new ForbiddenException('ليس لديك صلاحية تعديل المراسلات');
@@ -565,6 +568,7 @@ export class IncomingService {
           userAgent,
           deviceMac,
           deviceHost,
+          deviceId,
         });
 
         // تنبيه مديري النظام بالتغيير (مع رابط لمكان الحدث)

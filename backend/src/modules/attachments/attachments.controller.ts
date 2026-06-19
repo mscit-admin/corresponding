@@ -81,6 +81,7 @@ export class AttachmentsController {
       userAgent: req.headers['user-agent'],
       deviceMac: req.headers['x-device-mac'],
       deviceHost: req.headers['x-device-host'],
+      deviceId: req.headers['x-device-id'],
     });
   }
 
@@ -143,6 +144,7 @@ export class AttachmentsController {
     const deleted = await this.service.remove(
       id, userId, ip, req.headers['user-agent'],
       req.headers['x-device-mac'] as string, req.headers['x-device-host'] as string,
+      req.headers['x-device-id'] as string,
     );
     if (!deleted) throw new NotFoundException('المرفق غير موجود');
     return { success: true };

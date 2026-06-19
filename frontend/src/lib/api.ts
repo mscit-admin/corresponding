@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/store/auth';
-import { getCachedDevice } from './device';
+import { getCachedDevice, getDeviceId } from './device';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100/api/v1';
 
@@ -19,6 +19,8 @@ api.interceptors.request.use((config) => {
   if (dev.mac) config.headers['X-Device-Mac'] = dev.mac;
   if (dev.localIp) config.headers['X-Device-Local-Ip'] = dev.localIp;
   if (dev.hostname) config.headers['X-Device-Host'] = dev.hostname;
+  const did = getDeviceId();
+  if (did) config.headers['X-Device-Id'] = did;
   return config;
 });
 
@@ -111,6 +113,7 @@ export interface AuditEntry {
   userAgent?: string | null;
   deviceMac?: string | null;
   deviceHost?: string | null;
+  deviceId?: string | null;
   createdAt: string;
 }
 
@@ -127,6 +130,7 @@ export interface LogEntry {
   userAgent?: string | null;
   deviceMac?: string | null;
   deviceHost?: string | null;
+  deviceId?: string | null;
   createdAt: string;
 }
 

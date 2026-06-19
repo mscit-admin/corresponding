@@ -171,6 +171,7 @@ export function LogsView({ kind }: { kind: Kind }) {
                   {isAccess && (
                     <td className="px-3 py-2 text-[11px] text-slate-500 whitespace-nowrap">
                       <div>{deviceLabel(e.userAgent) || '—'}</div>
+                      {e.deviceId && <div className="font-mono text-[10px] text-slate-400">جهاز: {e.deviceId.slice(0, 12)}</div>}
                       {e.deviceMac && <div className="font-mono text-[10px] text-slate-400">MAC: {e.deviceMac}</div>}
                       {e.deviceHost && <div className="text-[10px] text-slate-400">{e.deviceHost}</div>}
                     </td>
