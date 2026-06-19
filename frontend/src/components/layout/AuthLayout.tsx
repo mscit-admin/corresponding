@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconHome, IconInbox,
   IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
-  IconHistory, IconShieldLock, IconDeviceDesktop, IconClockHour4,
+  IconHistory, IconShieldLock, IconDeviceDesktop, IconClockHour4, IconScan,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ const navItems: NavItem[] = [
   { href: '/archive', label: 'الأرشيف', icon: IconFileText, disabled: true },
   { href: '/reports', label: 'التقارير', icon: IconChartBar, disabled: true },
   { href: '/users', label: 'المستخدمين', icon: IconUsers, disabled: true },
+  { href: '/face', label: 'بصمة الوجه', icon: IconScan },
   { href: '/admin/ai-settings', label: 'إعدادات الذكاء الاصطناعي', icon: IconSparkles, adminOnly: true },
   { href: '/admin/audit-log', label: 'سجلّ التعديلات', icon: IconHistory, superAdminOnly: true },
   { href: '/admin/access-log', label: 'سجلّ الوصول', icon: IconShieldLock, superAdminOnly: true },

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FaceService } from '../face/face.service';
 
 // Roles allowed to EDIT correspondence (the supervisor/admin only — the
 // regular data-entry officer can register but not modify).
@@ -77,6 +78,7 @@ export class IncomingService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private face: FaceService,
   ) {}
 
   async create(data: any, user: any, ip?: any) {
@@ -716,6 +718,29 @@ export class IncomingService {
     const note = data?.note?.trim() || null;
     if (NOTE_REQUIRED.includes(action) && !note) {
       throw new BadRequestException('يجب إدخال ملاحظة/سبب لهذا الإجراء');
+    }
+
+    // ---- بصمة الوجه: إجراء الاعتماد (التوقيع) يتطلّب تحقّقاً بيومترياً ----
+    if (action === 'approve') {
+      const result = await this.face.verify(userIdBig, data?.faceDescriptor);
+      void this.prisma.auditLog
+        .create({
+          data: {
+            userId: userIdBig,
+            action: result.match ? 'FACE_VERIFIED' : 'FACE_FAILED',
+            entityType: 'IncomingCorrespondence',
+            entityId: idBig,
+            ipAddress: '0.0.0.0',
+            newValues: { distance: Number(result.distance.toFixed(4)) },
+          },
+        })
+        .catch((e) => this.logger.warn(`Audit (FACE) failed: ${e.message}`));
+      if (!result.match) {
+        throw new ForbiddenException({
+          code: 'FACE_MISMATCH',
+          message: 'فشل التحقّق من بصمة الوجه. لا يمكن اعتماد المعاملة.',
+        });
+      }
     }
 
     // ---- Apply status change (if any) ----

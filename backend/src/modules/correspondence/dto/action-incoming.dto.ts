@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /** جسم إجراءات إدارة المعاملة (اعتماد/رفض/إعادة/ملاحظة/طباعة/إغلاق/أرشفة). */
 export class ActionDto {
@@ -8,4 +8,9 @@ export class ActionDto {
   @IsString()
   @MaxLength(5000)
   note?: string;
+
+  @ApiPropertyOptional({ description: 'متّجه بصمة الوجه (إلزامي لإجراء الاعتماد)' })
+  @IsOptional()
+  @IsArray()
+  faceDescriptor?: number[];
 }

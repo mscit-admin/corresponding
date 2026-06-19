@@ -113,6 +113,15 @@ export const accessApi = {
   policy: () => api.get<AccessPolicy>('/access/policy').then((r) => r.data),
 };
 
+export const faceApi = {
+  status: () => api.get<{ enrolled: boolean; enrolledAt: string | null }>('/face/status').then((r) => r.data),
+  enroll: (descriptor: number[]) =>
+    api.post<{ ok: boolean; enrolledAt: string }>('/face/enroll', { descriptor }).then((r) => r.data),
+  reset: () => api.delete<{ ok: boolean }>('/face/enroll').then((r) => r.data),
+  verify: (descriptor: number[]) =>
+    api.post<{ match: boolean; distance: number }>('/face/verify', { descriptor }).then((r) => r.data),
+};
+
 export const usersApi = {
   me: () => api.get<UserDetail>('/users/me').then((r) => r.data),
   list: (params?: { skip?: number; take?: number }) =>
@@ -244,9 +253,10 @@ export const incomingApi = {
   route: (id: string, data: { departmentIds: string[]; note?: string }) =>
     api.post<IncomingCorrespondence>(`/correspondence/incoming/${id}/route`, data).then((r) => r.data),
   // إجراءات إدارة المعاملة: approve | reject | return | note | print | close | archive
-  act: (id: string, action: string, note?: string) =>
+  // الاعتماد (approve) يتطلّب متّجه بصمة الوجه (faceDescriptor)
+  act: (id: string, action: string, note?: string, faceDescriptor?: number[]) =>
     api
-      .post<IncomingCorrespondence>(`/correspondence/incoming/${id}/${action}`, { note })
+      .post<IncomingCorrespondence>(`/correspondence/incoming/${id}/${action}`, { note, faceDescriptor })
       .then((r) => r.data),
   create: (data: {
     receivedAt: string;

@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { incomingApi } from '@/lib/api';
 import { canDecide } from '@/lib/permissions';
+import { FaceCapture } from '@/components/FaceCapture';
 import type { IncomingCorrespondence } from '@/types';
 
 const NEEDS_NOTE = ['reject', 'return', 'note'];
@@ -32,6 +33,8 @@ export function IncomingActions({
 
   const [modal, setModal] = useState<null | { action: string; title: string; required: boolean }>(null);
   const [note, setNote] = useState('');
+  // عند الاعتماد: نفتح التقاط الوجه ونحتفظ بالملاحظة لحين نجاح التحقّق
+  const [faceFor, setFaceFor] = useState<null | { note?: string }>(null);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['incoming', id] });
@@ -39,7 +42,8 @@ export function IncomingActions({
   };
 
   const mut = useMutation({
-    mutationFn: (vars: { action: string; note?: string }) => incomingApi.act(id, vars.action, vars.note),
+    mutationFn: (vars: { action: string; note?: string; faceDescriptor?: number[] }) =>
+      incomingApi.act(id, vars.action, vars.note, vars.faceDescriptor),
     onSuccess: () => {
       toast.success('تم تنفيذ الإجراء');
       refresh();
@@ -57,7 +61,18 @@ export function IncomingActions({
       toast.error('يجب إدخال ملاحظة/سبب لهذا الإجراء');
       return;
     }
+    // الاعتماد (التوقيع) يتطلّب تحقّقاً ببصمة الوجه قبل التنفيذ
+    if (modal!.action === 'approve') {
+      setFaceFor({ note: note.trim() || undefined });
+      return;
+    }
     mut.mutate({ action: modal!.action, note: note.trim() || undefined });
+  };
+
+  const onFaceCaptured = (descriptor: number[]) => {
+    const noteVal = faceFor?.note;
+    setFaceFor(null);
+    mut.mutate({ action: 'approve', note: noteVal, faceDescriptor: descriptor });
   };
 
   const handlePrint = async () => {
@@ -128,6 +143,11 @@ export function IncomingActions({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setModal(null)}>
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-slate-900">{modal.title}</h3>
+            {modal.action === 'approve' && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                يتطلّب الاعتماد تحقّقاً ببصمة الوجه. بعد التأكيد ستُفتح الكاميرا للتحقّق.
+              </p>
+            )}
             <textarea
               autoFocus
               className="input"
@@ -148,6 +168,14 @@ export function IncomingActions({
             </div>
           </div>
         </div>
+      )}
+
+      {faceFor && (
+        <FaceCapture
+          mode="verify"
+          onCapture={onFaceCaptured}
+          onClose={() => setFaceFor(null)}
+        />
       )}
     </div>
   );

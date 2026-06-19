@@ -11,6 +11,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AiModule } from './modules/ai/ai.module';
 import { LogsModule } from './modules/logs/logs.module';
 import { AccessModule } from './modules/access/access.module';
+import { FaceModule } from './modules/face/face.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -38,6 +39,7 @@ import configuration from './config/configuration';
     AiModule,
     LogsModule,
     AccessModule,
+    FaceModule,
   ],
 })
 export class AppModule {}

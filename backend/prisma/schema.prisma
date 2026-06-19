@@ -105,6 +105,8 @@ model User {
   isActive            Boolean   @default(true) @map("is_active")
   mfaEnabled          Boolean   @default(false) @map("mfa_enabled")
   mfaSecret           String?   @map("mfa_secret") @db.VarChar(255)
+  faceDescriptor      Json?     @map("face_descriptor")
+  faceEnrolledAt      DateTime? @map("face_enrolled_at")
   lastLoginAt         DateTime? @map("last_login_at")
   passwordChangedAt   DateTime? @map("password_changed_at")
   createdAt           DateTime  @default(now()) @map("created_at")
