@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { IconArchive, IconUser, IconLock, IconLogin, IconAlertCircle, IconDeviceDesktop, IconClock, IconCircleCheck } from '@tabler/icons-react';
+import { IconArchive, IconUser, IconLock, IconLogin, IconAlertCircle, IconDeviceDesktop, IconClock, IconCircleCheck, IconWorld, IconMail } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
@@ -17,8 +17,8 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
-// مراحل الشاشة: تسجيل دخول عادي / طلب اعتماد جهاز جديد / بانتظار الموافقة
-type Stage = 'login' | 'request' | 'pending';
+// مراحل الشاشة: دخول عادي / اعتماد جهاز / بانتظار / دخول خارجي (نموذج) / بانتظار خارجي
+type Stage = 'login' | 'request' | 'pending' | 'external' | 'external-pending';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,21 +30,37 @@ export default function LoginPage() {
   const [creds, setCreds] = useState<{ username: string; password: string; fullName?: string }>({ username: '', password: '' });
   const [reason, setReason] = useState('');
   const [pendingMsg, setPendingMsg] = useState('');
+  // نموذج الدخول الخارجي
+  const [extName, setExtName] = useState('');
+  const [extCode, setExtCode] = useState('');
+  const [extSent, setExtSent] = useState<string | null>(null);
+  const [extCooldown, setExtCooldown] = useState(0);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: 'admin', password: 'Admin@1234' },
   });
 
-  // رسالة القفل التلقائي عند الخروج بسبب انتهاء وقت الدوام
+  // رسالة القفل التلقائي عند انتهاء تصريح الدخول الخارجي
   useEffect(() => {
     try {
-      if (sessionStorage.getItem('gsdms-lock-reason') === 'OUTSIDE_HOURS') {
+      const reason = sessionStorage.getItem('gsdms-lock-reason');
+      if (reason === 'EXTERNAL_GRANT_EXPIRED') {
         sessionStorage.removeItem('gsdms-lock-reason');
-        setError('انتهى وقت الدوام المسموح وتم إنهاء جلستك تلقائياً. يمكنك الدخول خلال أوقات الدوام أو من جهاز داخل الشركة.');
+        setError('انتهت صلاحية تصريح الدخول الخارجي وتم إنهاء جلستك. يمكنك تقديم طلب جديد أو الدخول من جهاز داخل المؤسسة.');
+      } else if (reason === 'EXTERNAL_LOCKED') {
+        sessionStorage.removeItem('gsdms-lock-reason');
+        setError('تم إيقاف الدخول الخارجي لحسابك من قِبل مدير النظام.');
       }
     } catch { /* ignore */ }
   }, []);
+
+  // مؤقّت إعادة إرسال رمز الدخول الخارجي
+  useEffect(() => {
+    if (extCooldown <= 0) return;
+    const t = setTimeout(() => setExtCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [extCooldown]);
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
@@ -65,6 +81,16 @@ export default function LoginPage() {
       } else if (code === 'DEVICE_PENDING') {
         setPendingMsg(message);
         setStage('pending');
+      } else if (code === 'EXTERNAL_APPROVAL_REQUIRED') {
+        // دخول خارجي — نموذج الاسم الثلاثي + رمز البريد
+        setCreds({ username: data.username, password: data.password, fullName: err.response?.data?.fullName });
+        setExtName('');
+        setExtCode('');
+        setExtSent(null);
+        setStage('external');
+      } else if (code === 'EXTERNAL_PENDING') {
+        setPendingMsg(message);
+        setStage('external-pending');
       } else {
         setError(message);
       }
@@ -84,6 +110,40 @@ export default function LoginPage() {
       const res = await authApi.requestDeviceApproval(creds.username, creds.password, reason.trim());
       setPendingMsg(res.message);
       setStage('pending');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'تعذّر إرسال الطلب');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendExtCode = async () => {
+    setError(null);
+    try {
+      const res = await authApi.requestExternalCode(creds.username, creds.password);
+      setExtSent(res.sentTo);
+      setExtCooldown(30);
+      toast.success(res.delivered ? `تم إرسال الرمز إلى ${res.sentTo}` : 'تم توليد الرمز (راجع سجلّ الخادم في وضع التطوير)');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'تعذّر إرسال الرمز');
+    }
+  };
+
+  const submitExternal = async () => {
+    if (extName.trim().length < 3) {
+      setError('يرجى إدخال الاسم الثلاثي كما هو مسجّل.');
+      return;
+    }
+    if (extCode.trim().length < 4) {
+      setError('يرجى إدخال رمز التحقّق المُرسَل على بريدك.');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await authApi.submitExternalRequest(creds.username, creds.password, extName.trim(), extCode.trim());
+      setPendingMsg(res.message);
+      setStage('external-pending');
     } catch (err: any) {
       setError(err.response?.data?.message || 'تعذّر إرسال الطلب');
     } finally {
@@ -196,6 +256,68 @@ export default function LoginPage() {
                 <IconCircleCheck className="w-4 h-4" />
                 <span>بعد الموافقة، يمكنك تسجيل الدخول من هذا الجهاز مباشرة.</span>
               </div>
+              <button onClick={backToLogin} className="btn w-full text-sm">العودة لتسجيل الدخول</button>
+            </div>
+          )}
+
+          {stage === 'external' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-brand-600">
+                <IconWorld className="w-6 h-6" />
+                <h2 className="text-lg font-medium text-slate-900">دخول من خارج شبكة المؤسسة</h2>
+              </div>
+              <p className="text-sm text-slate-600">
+                الدخول من خارج الشبكة يتطلّب موافقة مدير النظام. أكمل بياناتك ثم أرسل الطلب.
+              </p>
+
+              <div>
+                <label className="label">الاسم الثلاثي (كما هو مسجّل)</label>
+                <input value={extName} onChange={(e) => setExtName(e.target.value)} className="input" placeholder="الاسم الأول الأوسط الأخير" />
+              </div>
+
+              <div>
+                <label className="label">رمز التحقّق على البريد</label>
+                <div className="flex gap-2">
+                  <input
+                    value={extCode}
+                    onChange={(e) => setExtCode(e.target.value.replace(/\D/g, ''))}
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="input text-center tracking-[0.4em] font-mono"
+                    placeholder="------"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendExtCode}
+                    disabled={extCooldown > 0}
+                    className="btn text-xs whitespace-nowrap disabled:opacity-50"
+                  >
+                    <IconMail className="w-4 h-4" />
+                    {extCooldown > 0 ? `${extCooldown}ث` : extSent ? 'إعادة الإرسال' : 'إرسال الرمز'}
+                  </button>
+                </div>
+                {extSent && <p className="mt-1 text-xs text-emerald-600">أُرسل الرمز إلى {extSent}</p>}
+              </div>
+
+              {error && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                  <IconAlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button onClick={submitExternal} disabled={isLoading} className="btn-primary w-full">
+                {isLoading ? 'جارٍ الإرسال...' : 'إرسال الطلب لمدير النظام'}
+              </button>
+              <button onClick={backToLogin} className="btn w-full text-sm">رجوع</button>
+            </div>
+          )}
+
+          {stage === 'external-pending' && (
+            <div className="space-y-4 text-center py-4">
+              <IconClock className="w-12 h-12 text-amber-500 mx-auto" />
+              <h2 className="text-lg font-medium text-slate-900">بانتظار موافقة مدير النظام</h2>
+              <p className="text-sm text-slate-600">{pendingMsg || 'تم إرسال طلب الدخول الخارجي. سيتم إشعارك عند الموافقة.'}</p>
               <button onClick={backToLogin} className="btn w-full text-sm">العودة لتسجيل الدخول</button>
             </div>
           )}

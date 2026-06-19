@@ -2,13 +2,13 @@ import { ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
-import { AccessService } from '../../access/access.service';
+import { ExternalAccessService } from '../external-access.service';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
     private readonly reflector: Reflector,
-    private readonly access: AccessService,
+    private readonly externalAccess: ExternalAccessService,
   ) {
     super();
   }
@@ -28,16 +28,20 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     const req = context.switchToHttp().getRequest();
     const user = req.user;
-    // مدير النظام مُستثنى من قفل وقت الدوام
+    // مدير النظام مُستثنى من قيود الدخول الخارجي
     if (user?.role?.name === 'super_admin') return true;
 
-    // قفل تلقائي: الأجهزة الخارجية خارج وقت الدوام تُمنع من متابعة الجلسة
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '0.0.0.0';
-    const policy = await this.access.evaluate(ip);
-    if (!policy.allowed) {
+    const companyDevice = await this.externalAccess.isCompanyIp(ip);
+    if (companyDevice) return true; // داخل الشبكة — مسموح
+
+    // خارج الشبكة: يجب وجود تصريح دخول خارجي ساري لهذا الجهاز
+    const deviceId = (req.headers['x-device-id'] as string) || '';
+    const allowed = await this.externalAccess.hasActiveGrant(BigInt(user.id), deviceId);
+    if (!allowed) {
       throw new ForbiddenException({
-        code: 'OUTSIDE_HOURS',
-        message: `خارج وقت الدوام المسموح (${policy.start} - ${policy.end}). يرجى المحاولة خلال أوقات الدوام أو من جهاز داخل الشركة.`,
+        code: 'EXTERNAL_GRANT_EXPIRED',
+        message: 'انتهت صلاحية تصريح الدخول الخارجي أو لم تتم الموافقة عليه. يرجى تسجيل الدخول من جديد.',
       });
     }
     return true;

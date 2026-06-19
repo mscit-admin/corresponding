@@ -107,6 +107,7 @@ model User {
   mfaSecret           String?   @map("mfa_secret") @db.VarChar(255)
   faceDescriptor      Json?     @map("face_descriptor")
   faceEnrolledAt      DateTime? @map("face_enrolled_at")
+  externalLoginLocked Boolean   @default(false) @map("external_login_locked")
   lastLoginAt         DateTime? @map("last_login_at")
   passwordChangedAt   DateTime? @map("password_changed_at")
   createdAt           DateTime  @default(now()) @map("created_at")
@@ -132,6 +133,8 @@ model User {
   auditLogs             AuditLog[]
   trustedDevices        TrustedDevice[]           @relation("UserTrustedDevices")
   deviceDecisions       TrustedDevice[]           @relation("TrustedDeviceDecider")
+  externalRequests      ExternalAccessRequest[]   @relation("UserExternalRequests")
+  externalDecisions     ExternalAccessRequest[]   @relation("ExternalRequestDecider")
   otpCodes              OtpCode[]
   printTemplatesCreated PrintTemplate[]
   printsRequested       PrintLog[]                @relation("PrintRequester")
@@ -177,6 +180,31 @@ model TrustedDevice {
   @@index([userId, status])
   @@index([status])
   @@map("trusted_devices")
+}
+
+/// طلب دخول من جهاز/متصفّح خارج شبكة المؤسسة — يتطلّب موافقة مدير النظام بمدة محدّدة أو مفتوحة.
+model ExternalAccessRequest {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt    @map("user_id")
+  deviceId    String    @map("device_id") @db.VarChar(255)
+  status      String    @default("pending") @db.VarChar(20) // pending | approved | denied | expired
+  ipAddress   String?   @map("ip_address") @db.VarChar(64)
+  userAgent   String?   @map("user_agent")
+  deviceHost  String?   @map("device_host") @db.VarChar(255)
+  deviceMac   String?   @map("device_mac") @db.VarChar(64)
+  grantType   String?   @map("grant_type") @db.VarChar(20) // open | until
+  grantUntil  DateTime? @map("grant_until")
+  decidedById BigInt?   @map("decided_by")
+  decidedAt   DateTime? @map("decided_at")
+  lastSeenAt  DateTime? @map("last_seen_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user    User  @relation("UserExternalRequests", fields: [userId], references: [id], onDelete: Cascade)
+  decider User? @relation("ExternalRequestDecider", fields: [decidedById], references: [id])
+
+  @@index([userId, deviceId])
+  @@index([status])
+  @@map("external_access_requests")
 }
 
 /// رموز التحقّق لمرّة واحدة (OTP) المُرسَلة على البريد — للاعتماد والإجراءات الحسّاسة.

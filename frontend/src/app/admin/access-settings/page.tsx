@@ -2,21 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { IconAlertTriangle, IconClock, IconDeviceLaptop, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconAlertTriangle, IconNetwork, IconDeviceLaptop, IconDeviceFloppy } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { accessApi, type AccessConfig } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
-
-const DAYS = [
-  { n: 0, label: 'الأحد' },
-  { n: 1, label: 'الإثنين' },
-  { n: 2, label: 'الثلاثاء' },
-  { n: 3, label: 'الأربعاء' },
-  { n: 4, label: 'الخميس' },
-  { n: 5, label: 'الجمعة' },
-  { n: 6, label: 'السبت' },
-];
 
 export default function AccessSettingsPage() {
   const router = useRouter();
@@ -39,12 +29,6 @@ export default function AccessSettingsPage() {
       .catch(() => toast.error('تعذّر تحميل الإعدادات'))
       .finally(() => setLoading(false));
   }, [allowed]);
-
-  const toggleDay = (n: number) => {
-    if (!cfg) return;
-    const days = cfg.days.includes(n) ? cfg.days.filter((d) => d !== n) : [...cfg.days, n];
-    setCfg({ ...cfg, days });
-  };
 
   const save = async () => {
     if (!cfg) return;
@@ -82,75 +66,22 @@ export default function AccessSettingsPage() {
     <AuthLayout>
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="flex items-center gap-2">
-          <IconClock className="w-6 h-6 text-brand-600" />
-          <h1 className="text-lg font-semibold text-slate-900">وقت الدوام والوصول</h1>
+          <IconNetwork className="w-6 h-6 text-brand-600" />
+          <h1 className="text-lg font-semibold text-slate-900">الوصول والشبكة</h1>
         </div>
 
         {loading || !cfg ? (
           <div className="card text-center py-10 text-sm text-slate-500">جارٍ التحميل...</div>
         ) : (
           <>
-            <div className="card space-y-4">
-              <label className="flex items-center justify-between gap-3 cursor-pointer">
-                <div>
-                  <div className="font-medium text-slate-900">تفعيل تقييد وقت الدوام</div>
-                  <div className="text-xs text-slate-500">يُطبَّق على الأجهزة خارج الشركة فقط. أجهزة الشركة مسموحة دائماً.</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={cfg.enabled}
-                  onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })}
-                  className="w-5 h-5 accent-brand-600"
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">بداية الدوام</label>
-                  <input type="time" value={cfg.start} onChange={(e) => setCfg({ ...cfg, start: e.target.value })} className="input" />
-                </div>
-                <div>
-                  <label className="label">نهاية الدوام</label>
-                  <input type="time" value={cfg.end} onChange={(e) => setCfg({ ...cfg, end: e.target.value })} className="input" />
-                </div>
-              </div>
-
-              <div>
-                <label className="label">أيام الدوام</label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {DAYS.map((d) => (
-                    <button
-                      key={d.n}
-                      type="button"
-                      onClick={() => toggleDay(d.n)}
-                      className={`px-3 py-1.5 rounded-md text-sm ${cfg.days.includes(d.n) ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="label">المنطقة الزمنية</label>
-                <input
-                  type="text"
-                  value={cfg.timezone}
-                  onChange={(e) => setCfg({ ...cfg, timezone: e.target.value })}
-                  className="input font-mono"
-                  placeholder="Asia/Riyadh"
-                />
-              </div>
-            </div>
-
             <div className="card space-y-3">
               <div className="flex items-center gap-2">
                 <IconDeviceLaptop className="w-5 h-5 text-brand-600" />
-                <h2 className="font-medium text-slate-900">شبكة الشركة (الأجهزة الداخلية)</h2>
+                <h2 className="font-medium text-slate-900">شبكة المؤسسة (الأجهزة الداخلية)</h2>
               </div>
               <p className="text-xs text-slate-500">
-                نطاقات IP لشبكة المصلحة (CIDR، نطاق في كل سطر). الأجهزة ضمنها تُعدّ «داخل الشركة» ومسموحة دائماً.
-                أي جهاز خارجها يخضع لوقت الدوام ويُرسَل إشعار لمدير النظام.
+                نطاقات IP لشبكة المصلحة (CIDR، نطاق في كل سطر). الأجهزة ضمنها تُعدّ «داخل المؤسسة» وتدخل مباشرة.
+                أي جهاز خارجها يخضع لطلب دخول خارجي يوافق عليه مدير النظام (بمدة محدّدة أو مفتوحة).
               </p>
               <textarea
                 value={cidrText}
@@ -161,7 +92,7 @@ export default function AccessSettingsPage() {
               />
 
               <label className="flex items-center justify-between gap-3 cursor-pointer pt-1">
-                <div className="text-sm text-slate-700">إشعار مدير النظام عند كل دخول من جهاز خارجي</div>
+                <div className="text-sm text-slate-700">إشعار مدير النظام عند طلبات الدخول الخارجي</div>
                 <input
                   type="checkbox"
                   checked={cfg.notifyExternal}

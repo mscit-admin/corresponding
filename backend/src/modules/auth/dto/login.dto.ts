@@ -30,6 +30,50 @@ export class RequestDeviceApprovalDto {
   reason: string;
 }
 
+export class RequestExternalCodeDto {
+  @ApiProperty({ description: 'اسم المستخدم' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ description: 'كلمة المرور' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+export class SubmitExternalRequestDto {
+  @ApiProperty({ description: 'اسم المستخدم / الرقم الوظيفي' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ description: 'كلمة المرور' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
+  @ApiProperty({ description: 'الاسم الثلاثي كما هو مسجّل' })
+  @IsString()
+  @IsNotEmpty()
+  fullName: string;
+
+  @ApiProperty({ description: 'رمز التحقّق المُرسَل على البريد' })
+  @IsString()
+  @IsNotEmpty()
+  otpCode: string;
+}
+
+export class ExternalLockDto {
+  @ApiProperty({ description: 'معرّف المستخدم' })
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
+
+  @ApiProperty({ description: 'قفل (true) أو فتح (false) الدخول الخارجي' })
+  locked: boolean;
+}
+
 export class LoginResponseDto {
   @ApiProperty()
   accessToken: string;

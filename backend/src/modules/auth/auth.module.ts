@@ -4,16 +4,19 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthService } from './auth.service';
+import { ExternalAccessService } from './external-access.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AccessModule } from '../access/access.module';
+import { OtpModule } from '../otp/otp.module';
 
 @Module({
   imports: [
     NotificationsModule,
     AccessModule,
+    OtpModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -27,10 +30,11 @@ import { AccessModule } from '../access/access.module';
   controllers: [AuthController],
   providers: [
     AuthService,
+    ExternalAccessService,
     JwtStrategy,
     // Apply JWT guard globally; routes opt-out via @Public()
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
-  exports: [AuthService],
+  exports: [AuthService, ExternalAccessService],
 })
 export class AuthModule {}

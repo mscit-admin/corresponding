@@ -24,17 +24,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor - handle 401 (unauthorized) + 403 OUTSIDE_HOURS (auto-lock)
+// Response interceptor - handle 401 (unauthorized) + انتهاء تصريح الدخول الخارجي (قفل تلقائي)
+const AUTO_LOCK_CODES = ['EXTERNAL_GRANT_EXPIRED', 'EXTERNAL_LOCKED'];
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ code?: string }>) => {
     const status = error.response?.status;
     const code = error.response?.data?.code;
-    if (status === 401 || (status === 403 && code === 'OUTSIDE_HOURS')) {
+    if (status === 401 || (status === 403 && code && AUTO_LOCK_CODES.includes(code))) {
       useAuthStore.getState().logout();
       if (typeof window !== 'undefined') {
-        if (code === 'OUTSIDE_HOURS') {
-          try { sessionStorage.setItem('gsdms-lock-reason', 'OUTSIDE_HOURS'); } catch { /* ignore */ }
+        if (code && AUTO_LOCK_CODES.includes(code)) {
+          try { sessionStorage.setItem('gsdms-lock-reason', code); } catch { /* ignore */ }
         }
         window.location.href = '/login';
       }
@@ -55,6 +56,15 @@ export const authApi = {
   requestDeviceApproval: (username: string, password: string, reason: string) =>
     api
       .post<{ ok: boolean; message: string }>('/auth/request-device-approval', { username, password, reason })
+      .then((r) => r.data),
+  // الدخول الخارجي
+  requestExternalCode: (username: string, password: string) =>
+    api
+      .post<{ sentTo: string; delivered: boolean; expiresInSec: number }>('/auth/external/request-code', { username, password })
+      .then((r) => r.data),
+  submitExternalRequest: (username: string, password: string, fullName: string, otpCode: string) =>
+    api
+      .post<{ ok: boolean; message: string }>('/auth/external/request', { username, password, fullName, otpCode })
       .then((r) => r.data),
 };
 
@@ -82,6 +92,35 @@ export const deviceApprovalsApi = {
     api.get<DeviceApproval[]>('/auth/device-approvals', { params: status ? { status } : {} }).then((r) => r.data),
   approve: (id: string) => api.post(`/auth/device-approvals/${id}/approve`).then((r) => r.data),
   reject: (id: string) => api.post(`/auth/device-approvals/${id}/reject`).then((r) => r.data),
+};
+
+export interface ExternalRequest {
+  id: string;
+  status: 'pending' | 'approved' | 'denied' | 'expired';
+  userId: string | null;
+  employeeName: string | null;
+  jobNo: string | null;
+  department: string | null;
+  externalLocked: boolean;
+  deviceId: string;
+  ipAddress: string | null;
+  deviceHost: string | null;
+  grantType: 'open' | 'until' | null;
+  grantUntil: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+}
+
+export const externalRequestsApi = {
+  list: (status?: 'pending' | 'approved' | 'denied' | 'expired') =>
+    api.get<ExternalRequest[]>('/auth/external-requests', { params: status ? { status } : {} }).then((r) => r.data),
+  approve: (id: string, hours?: number) =>
+    api.post(`/auth/external-requests/${id}/approve`, { hours }).then((r) => r.data),
+  deny: (id: string) => api.post(`/auth/external-requests/${id}/deny`).then((r) => r.data),
+  setLock: (userId: string, locked: boolean) =>
+    api.post('/auth/external-lock', { userId, locked }).then((r) => r.data),
 };
 
 export type ApprovalVerifyMethod = 'face' | 'email' | 'both';
