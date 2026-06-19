@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
@@ -7,7 +8,12 @@ import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+
+  // الثقة بأوّل بروكسي (nginx) ليعكس req.ip عنوان العميل الحقيقي.
+  // ملاحظة: المسارات الأمنية الحسّاسة تعتمد على آخر عنوان في X-Forwarded-For
+  // مباشرةً (غير قابل للتزوير) بصرف النظر عن هذا الإعداد.
+  app.set('trust proxy', 1);
 
   // Logger
   app.useLogger(app.get(Logger));
