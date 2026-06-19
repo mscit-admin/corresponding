@@ -84,6 +84,8 @@ export const deviceApprovalsApi = {
   reject: (id: string) => api.post(`/auth/device-approvals/${id}/reject`).then((r) => r.data),
 };
 
+export type ApprovalVerifyMethod = 'face' | 'email' | 'both';
+
 export interface AccessConfig {
   enabled: boolean;
   start: string;
@@ -92,7 +94,16 @@ export interface AccessConfig {
   timezone: string;
   companyCidrs: string[];
   notifyExternal: boolean;
+  approvalVerifyMethod: ApprovalVerifyMethod;
 }
+
+export const otpApi = {
+  method: () => api.get<{ method: ApprovalVerifyMethod }>('/otp/method').then((r) => r.data.method),
+  requestApprovalCode: () =>
+    api
+      .post<{ sentTo: string; delivered: boolean; expiresInSec: number }>('/otp/request', { purpose: 'approve' })
+      .then((r) => r.data),
+};
 
 export interface AccessPolicy {
   companyDevice: boolean;
@@ -253,10 +264,19 @@ export const incomingApi = {
   route: (id: string, data: { departmentIds: string[]; note?: string }) =>
     api.post<IncomingCorrespondence>(`/correspondence/incoming/${id}/route`, data).then((r) => r.data),
   // إجراءات إدارة المعاملة: approve | reject | return | note | print | close | archive
-  // الاعتماد (approve) يتطلّب متّجه بصمة الوجه (faceDescriptor)
-  act: (id: string, action: string, note?: string, faceDescriptor?: number[]) =>
+  // الاعتماد (approve) يتطلّب تحقّقاً: رمز بريد (otpCode) أو بصمة وجه (faceDescriptor)
+  act: (
+    id: string,
+    action: string,
+    note?: string,
+    verify?: { faceDescriptor?: number[]; otpCode?: string },
+  ) =>
     api
-      .post<IncomingCorrespondence>(`/correspondence/incoming/${id}/${action}`, { note, faceDescriptor })
+      .post<IncomingCorrespondence>(`/correspondence/incoming/${id}/${action}`, {
+        note,
+        faceDescriptor: verify?.faceDescriptor,
+        otpCode: verify?.otpCode,
+      })
       .then((r) => r.data),
   create: (data: {
     receivedAt: string;

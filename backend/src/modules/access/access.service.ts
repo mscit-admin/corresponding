@@ -10,7 +10,10 @@ const K = {
   tz: 'access.schedule.timezone',
   cidrs: 'access.company.cidrs',
   notifyExternal: 'access.external.notify',
+  approvalMethod: 'approval.verify_method',
 };
+
+export type ApprovalVerifyMethod = 'face' | 'email' | 'both';
 
 export interface AccessConfig {
   enabled: boolean;
@@ -20,6 +23,7 @@ export interface AccessConfig {
   timezone: string;
   companyCidrs: string[];
   notifyExternal: boolean;
+  approvalVerifyMethod: ApprovalVerifyMethod;
 }
 
 export interface AccessEvaluation {
@@ -41,6 +45,7 @@ const DEFAULTS: AccessConfig = {
   timezone: 'Asia/Riyadh',
   companyCidrs: [],
   notifyExternal: true,
+  approvalVerifyMethod: 'email',
 };
 
 @Injectable()
@@ -68,6 +73,7 @@ export class AccessService {
       timezone: map.get(K.tz) || DEFAULTS.timezone,
       companyCidrs: this.parseJson(map.get(K.cidrs), DEFAULTS.companyCidrs),
       notifyExternal: (map.get(K.notifyExternal) ?? String(DEFAULTS.notifyExternal)) === 'true',
+      approvalVerifyMethod: this.parseMethod(map.get(K.approvalMethod)),
     };
     this.cache = { config, at: Date.now() };
     return config;
@@ -89,6 +95,9 @@ export class AccessService {
       entries.push([K.cidrs, JSON.stringify(cidrs)]);
     }
     if (input.notifyExternal !== undefined) entries.push([K.notifyExternal, String(!!input.notifyExternal)]);
+    if (input.approvalVerifyMethod !== undefined) {
+      entries.push([K.approvalMethod, this.parseMethod(input.approvalVerifyMethod)]);
+    }
 
     for (const [key, value] of entries) {
       await this.prisma.systemSetting.upsert({
@@ -188,6 +197,10 @@ export class AccessService {
   private toMinutes(hhmm: string): number {
     const [h, m] = hhmm.split(':').map((x) => parseInt(x, 10));
     return (h || 0) * 60 + (m || 0);
+  }
+
+  private parseMethod(raw: string | undefined): ApprovalVerifyMethod {
+    return raw === 'face' || raw === 'email' || raw === 'both' ? raw : DEFAULTS.approvalVerifyMethod;
   }
 
   private parseJson<T>(raw: string | undefined, fallback: T): T {

@@ -132,6 +132,7 @@ model User {
   auditLogs             AuditLog[]
   trustedDevices        TrustedDevice[]           @relation("UserTrustedDevices")
   deviceDecisions       TrustedDevice[]           @relation("TrustedDeviceDecider")
+  otpCodes              OtpCode[]
   printTemplatesCreated PrintTemplate[]
   printsRequested       PrintLog[]                @relation("PrintRequester")
   printsApproved        PrintLog[]                @relation("PrintApprover")
@@ -176,6 +177,24 @@ model TrustedDevice {
   @@index([userId, status])
   @@index([status])
   @@map("trusted_devices")
+}
+
+/// رموز التحقّق لمرّة واحدة (OTP) المُرسَلة على البريد — للاعتماد والإجراءات الحسّاسة.
+model OtpCode {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt    @map("user_id")
+  codeHash   String    @map("code_hash") @db.VarChar(255)
+  purpose    String    @db.VarChar(50)
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("otp_codes")
 }
 
 // =====================================================================

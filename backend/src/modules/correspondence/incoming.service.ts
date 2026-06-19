@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException,
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FaceService } from '../face/face.service';
+import { OtpService } from '../otp/otp.service';
+import { AccessService } from '../access/access.service';
 
 // Roles allowed to EDIT correspondence (the supervisor/admin only — the
 // regular data-entry officer can register but not modify).
@@ -79,6 +81,8 @@ export class IncomingService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private face: FaceService,
+    private otp: OtpService,
+    private access: AccessService,
   ) {}
 
   async create(data: any, user: any, ip?: any) {
@@ -668,6 +672,68 @@ export class IncomingService {
    * إجراءات إدارة المعاملة: اعتماد/رفض/إعادة/ملاحظة/طباعة/إغلاق/أرشفة.
    * الفتح يُسجَّل تلقائياً عند عرض التفاصيل.
    */
+  /**
+   * يتحقّق من هوية المُعتمِد قبل اعتماد المعاملة، حسب الطريقة المُفعّلة:
+   * رمز بريد (email) و/أو بصمة وجه (face) أو أيّهما (both).
+   */
+  private async verifyApproval(userIdBig: bigint, idBig: bigint, data: any): Promise<void> {
+    const method = (await this.access.getConfig()).approvalVerifyMethod;
+    const hasOtp = typeof data?.otpCode === 'string' && data.otpCode.trim().length > 0;
+    const hasFace = Array.isArray(data?.faceDescriptor);
+    const allowEmail = method === 'email' || method === 'both';
+    const allowFace = method === 'face' || method === 'both';
+
+    const audit = (action: string, newValues?: any) =>
+      void this.prisma.auditLog
+        .create({
+          data: {
+            userId: userIdBig,
+            action,
+            entityType: 'IncomingCorrespondence',
+            entityId: idBig,
+            ipAddress: '0.0.0.0',
+            newValues: newValues ?? undefined,
+          },
+        })
+        .catch((e) => this.logger.warn(`Audit (${action}) failed: ${e.message}`));
+
+    // رمز البريد له الأولوية إن أُرسل
+    if (allowEmail && hasOtp) {
+      const res = await this.otp.verifyCode(userIdBig, 'approve', data.otpCode);
+      audit(res.ok ? 'OTP_VERIFIED' : 'OTP_FAILED');
+      if (!res.ok) {
+        throw new ForbiddenException({ code: 'OTP_MISMATCH', message: 'رمز التحقّق غير صحيح.' });
+      }
+      return;
+    }
+
+    if (allowFace && hasFace) {
+      const result = await this.face.verify(userIdBig, data.faceDescriptor);
+      audit(result.match ? 'FACE_VERIFIED' : 'FACE_FAILED', {
+        distance: Number(result.distance.toFixed(4)),
+      });
+      if (!result.match) {
+        throw new ForbiddenException({
+          code: 'FACE_MISMATCH',
+          message: 'فشل التحقّق من بصمة الوجه. لا يمكن اعتماد المعاملة.',
+        });
+      }
+      return;
+    }
+
+    // لم تُقدَّم وسيلة تحقّق صالحة — أبلغ الواجهة بالطرق المقبولة
+    throw new ForbiddenException({
+      code: 'VERIFICATION_REQUIRED',
+      method,
+      message:
+        method === 'face'
+          ? 'يتطلّب الاعتماد التحقّق ببصمة الوجه.'
+          : method === 'email'
+            ? 'يتطلّب الاعتماد إدخال رمز التحقّق المُرسَل على بريدك.'
+            : 'يتطلّب الاعتماد التحقّق برمز البريد أو بصمة الوجه.',
+    });
+  }
+
   async act(id: any, action: string, data: any, user: any) {
     const roleName = user?.role?.name;
     const idBig = typeof id === 'bigint' ? id : BigInt(id);
@@ -720,27 +786,9 @@ export class IncomingService {
       throw new BadRequestException('يجب إدخال ملاحظة/سبب لهذا الإجراء');
     }
 
-    // ---- بصمة الوجه: إجراء الاعتماد (التوقيع) يتطلّب تحقّقاً بيومترياً ----
+    // ---- الاعتماد (التوقيع) يتطلّب تحقّقاً إضافياً: رمز بريد و/أو بصمة وجه ----
     if (action === 'approve') {
-      const result = await this.face.verify(userIdBig, data?.faceDescriptor);
-      void this.prisma.auditLog
-        .create({
-          data: {
-            userId: userIdBig,
-            action: result.match ? 'FACE_VERIFIED' : 'FACE_FAILED',
-            entityType: 'IncomingCorrespondence',
-            entityId: idBig,
-            ipAddress: '0.0.0.0',
-            newValues: { distance: Number(result.distance.toFixed(4)) },
-          },
-        })
-        .catch((e) => this.logger.warn(`Audit (FACE) failed: ${e.message}`));
-      if (!result.match) {
-        throw new ForbiddenException({
-          code: 'FACE_MISMATCH',
-          message: 'فشل التحقّق من بصمة الوجه. لا يمكن اعتماد المعاملة.',
-        });
-      }
+      await this.verifyApproval(userIdBig, idBig, data);
     }
 
     // ---- Apply status change (if any) ----

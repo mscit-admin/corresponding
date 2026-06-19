@@ -171,6 +171,27 @@ export default function AccessSettingsPage() {
               </label>
             </div>
 
+            <div className="card space-y-2">
+              <h2 className="font-medium text-slate-900">طريقة التحقّق عند اعتماد المعاملات</h2>
+              <p className="text-xs text-slate-500">الوسيلة المطلوبة لتأكيد هوية المُعتمِد قبل اعتماد أي معاملة.</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { v: 'email', label: 'رمز على البريد' },
+                  { v: 'face', label: 'بصمة الوجه' },
+                  { v: 'both', label: 'كلاهما (يختار الموظف)' },
+                ] as const).map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setCfg({ ...cfg, approvalVerifyMethod: o.v })}
+                    className={`px-3 py-1.5 rounded-md text-sm ${cfg.approvalVerifyMethod === o.v ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button onClick={save} disabled={saving} className="btn-primary w-full">
               <IconDeviceFloppy className="w-4 h-4" />
               {saving ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}

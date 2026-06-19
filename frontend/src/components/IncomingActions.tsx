@@ -7,9 +7,10 @@ import {
   IconCircleCheck, IconCircleX, IconArrowBackUp, IconNote,
   IconPrinter, IconLock, IconArchive,
 } from '@tabler/icons-react';
-import { incomingApi } from '@/lib/api';
+import { incomingApi, otpApi, type ApprovalVerifyMethod } from '@/lib/api';
 import { canDecide } from '@/lib/permissions';
 import { FaceCapture } from '@/components/FaceCapture';
+import { OtpVerify } from '@/components/OtpVerify';
 import type { IncomingCorrespondence } from '@/types';
 
 const NEEDS_NOTE = ['reject', 'return', 'note'];
@@ -33,8 +34,8 @@ export function IncomingActions({
 
   const [modal, setModal] = useState<null | { action: string; title: string; required: boolean }>(null);
   const [note, setNote] = useState('');
-  // عند الاعتماد: نفتح التقاط الوجه ونحتفظ بالملاحظة لحين نجاح التحقّق
-  const [faceFor, setFaceFor] = useState<null | { note?: string }>(null);
+  // مراحل تحقّق الاعتماد: اختيار الطريقة / الوجه / رمز البريد — مع حفظ الملاحظة
+  const [verify, setVerify] = useState<null | { note?: string; stage: 'choose' | 'face' | 'otp' }>(null);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['incoming', id] });
@@ -42,13 +43,14 @@ export function IncomingActions({
   };
 
   const mut = useMutation({
-    mutationFn: (vars: { action: string; note?: string; faceDescriptor?: number[] }) =>
-      incomingApi.act(id, vars.action, vars.note, vars.faceDescriptor),
+    mutationFn: (vars: { action: string; note?: string; verify?: { faceDescriptor?: number[]; otpCode?: string } }) =>
+      incomingApi.act(id, vars.action, vars.note, vars.verify),
     onSuccess: () => {
       toast.success('تم تنفيذ الإجراء');
       refresh();
       setModal(null);
       setNote('');
+      setVerify(null);
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'تعذّر تنفيذ الإجراء'),
   });
@@ -56,23 +58,41 @@ export function IncomingActions({
   const openModal = (action: string, title: string) =>
     setModal({ action, title, required: NEEDS_NOTE.includes(action) });
 
+  const startApprovalVerify = async (noteVal?: string) => {
+    try {
+      const method: ApprovalVerifyMethod = await otpApi.method();
+      setModal(null);
+      if (method === 'face') setVerify({ note: noteVal, stage: 'face' });
+      else if (method === 'email') setVerify({ note: noteVal, stage: 'otp' });
+      else setVerify({ note: noteVal, stage: 'choose' });
+    } catch {
+      toast.error('تعذّر تحديد طريقة التحقّق');
+    }
+  };
+
   const submit = () => {
     if (modal?.required && !note.trim()) {
       toast.error('يجب إدخال ملاحظة/سبب لهذا الإجراء');
       return;
     }
-    // الاعتماد (التوقيع) يتطلّب تحقّقاً ببصمة الوجه قبل التنفيذ
+    // الاعتماد (التوقيع) يتطلّب تحقّقاً إضافياً قبل التنفيذ
     if (modal!.action === 'approve') {
-      setFaceFor({ note: note.trim() || undefined });
+      void startApprovalVerify(note.trim() || undefined);
       return;
     }
     mut.mutate({ action: modal!.action, note: note.trim() || undefined });
   };
 
   const onFaceCaptured = (descriptor: number[]) => {
-    const noteVal = faceFor?.note;
-    setFaceFor(null);
-    mut.mutate({ action: 'approve', note: noteVal, faceDescriptor: descriptor });
+    const noteVal = verify?.note;
+    setVerify(null);
+    mut.mutate({ action: 'approve', note: noteVal, verify: { faceDescriptor: descriptor } });
+  };
+
+  const onOtpEntered = (otpCode: string) => {
+    const noteVal = verify?.note;
+    setVerify(null);
+    mut.mutate({ action: 'approve', note: noteVal, verify: { otpCode } });
   };
 
   const handlePrint = async () => {
@@ -145,7 +165,7 @@ export function IncomingActions({
             <h3 className="text-sm font-semibold text-slate-900">{modal.title}</h3>
             {modal.action === 'approve' && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
-                يتطلّب الاعتماد تحقّقاً ببصمة الوجه. بعد التأكيد ستُفتح الكاميرا للتحقّق.
+                يتطلّب الاعتماد تحقّقاً إضافياً من هويتك. بعد التأكيد ستظهر خطوة التحقّق (رمز البريد أو بصمة الوجه).
               </p>
             )}
             <textarea
@@ -170,12 +190,27 @@ export function IncomingActions({
         </div>
       )}
 
-      {faceFor && (
-        <FaceCapture
-          mode="verify"
-          onCapture={onFaceCaptured}
-          onClose={() => setFaceFor(null)}
-        />
+      {verify?.stage === 'choose' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setVerify(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-slate-900">اختر طريقة التحقّق للاعتماد</h3>
+            <button onClick={() => setVerify({ ...verify, stage: 'otp' })} className="btn-primary w-full text-sm">
+              رمز على البريد الإلكتروني
+            </button>
+            <button onClick={() => setVerify({ ...verify, stage: 'face' })} className="btn w-full text-sm">
+              بصمة الوجه (الكاميرا)
+            </button>
+            <button onClick={() => setVerify(null)} className="btn w-full text-xs">إلغاء</button>
+          </div>
+        </div>
+      )}
+
+      {verify?.stage === 'face' && (
+        <FaceCapture mode="verify" onCapture={onFaceCaptured} onClose={() => setVerify(null)} />
+      )}
+
+      {verify?.stage === 'otp' && (
+        <OtpVerify onVerified={onOtpEntered} onClose={() => setVerify(null)} />
       )}
     </div>
   );

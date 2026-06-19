@@ -12,6 +12,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { LogsModule } from './modules/logs/logs.module';
 import { AccessModule } from './modules/access/access.module';
 import { FaceModule } from './modules/face/face.module';
+import { OtpModule } from './modules/otp/otp.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -40,6 +41,7 @@ import configuration from './config/configuration';
     LogsModule,
     AccessModule,
     FaceModule,
+    OtpModule,
   ],
 })
 export class AppModule {}

@@ -9,8 +9,14 @@ export class ActionDto {
   @MaxLength(5000)
   note?: string;
 
-  @ApiPropertyOptional({ description: 'متّجه بصمة الوجه (إلزامي لإجراء الاعتماد)' })
+  @ApiPropertyOptional({ description: 'متّجه بصمة الوجه (لتحقّق الاعتماد بالوجه)' })
   @IsOptional()
   @IsArray()
   faceDescriptor?: number[];
+
+  @ApiPropertyOptional({ description: 'رمز التحقّق المُرسَل على البريد (لتحقّق الاعتماد بالإيميل)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  otpCode?: string;
 }
