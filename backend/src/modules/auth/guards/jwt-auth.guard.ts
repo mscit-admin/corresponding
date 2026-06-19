@@ -1,5 +1,5 @@
 import { ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
 import { ExternalAccessService } from '../external-access.service';
@@ -8,7 +8,10 @@ import { ExternalAccessService } from '../external-access.service';
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
     private readonly reflector: Reflector,
-    private readonly externalAccess: ExternalAccessService,
+    // نحلّ ExternalAccessService كسولاً عبر ModuleRef بدل حقنه في المُنشئ،
+    // حتى يعمل الحارس في أي سياق وحدة (مثل @UseGuards في AttachmentsModule)
+    // دون أن تحتاج كل وحدة لتوفير الخدمة.
+    private readonly moduleRef: ModuleRef,
   ) {
     super();
   }
@@ -31,13 +34,15 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // مدير النظام مُستثنى من قيود الدخول الخارجي
     if (user?.role?.name === 'super_admin') return true;
 
+    const externalAccess = this.moduleRef.get(ExternalAccessService, { strict: false });
+
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '0.0.0.0';
-    const companyDevice = await this.externalAccess.isCompanyIp(ip);
+    const companyDevice = await externalAccess.isCompanyIp(ip);
     if (companyDevice) return true; // داخل الشبكة — مسموح
 
     // خارج الشبكة: يجب وجود تصريح دخول خارجي ساري لهذا الجهاز
     const deviceId = (req.headers['x-device-id'] as string) || '';
-    const allowed = await this.externalAccess.hasActiveGrant(BigInt(user.id), deviceId);
+    const allowed = await externalAccess.hasActiveGrant(BigInt(user.id), deviceId);
     if (!allowed) {
       throw new ForbiddenException({
         code: 'EXTERNAL_GRANT_EXPIRED',
