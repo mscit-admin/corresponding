@@ -128,6 +128,8 @@ model User {
   workflowsCreated      Workflow[]
   notifications         Notification[]
   auditLogs             AuditLog[]
+  trustedDevices        TrustedDevice[]           @relation("UserTrustedDevices")
+  deviceDecisions       TrustedDevice[]           @relation("TrustedDeviceDecider")
   printTemplatesCreated PrintTemplate[]
   printsRequested       PrintLog[]                @relation("PrintRequester")
   printsApproved        PrintLog[]                @relation("PrintApprover")
@@ -137,6 +139,41 @@ model User {
   @@index([departmentId])
   @@index([isActive])
   @@map("users")
+}
+
+/// حالة الجهاز الموثوق: بانتظار موافقة المدير / معتمد / مرفوض
+enum DeviceStatus {
+  pending
+  approved
+  rejected
+}
+
+/// الأجهزة/المتصفّحات الموثوقة لكل مستخدم. الدخول من جهاز جديد يتطلّب
+/// موافقة مدير النظام (super_admin). يُربط الجهاز عبر معرّف الجهاز (Device ID).
+model TrustedDevice {
+  id         BigInt       @id @default(autoincrement())
+  userId     BigInt       @map("user_id")
+  deviceId   String       @map("device_id") @db.VarChar(64)
+  status     DeviceStatus @default(pending)
+  reason     String?      @db.Text
+  label      String?      @db.VarChar(150)
+  ipAddress  String?      @map("ip_address") @db.VarChar(45)
+  userAgent  String?      @map("user_agent") @db.Text
+  deviceHost String?      @map("device_host") @db.VarChar(150)
+  deviceMac  String?      @map("device_mac") @db.VarChar(64)
+  decidedBy  BigInt?      @map("decided_by")
+  decidedAt  DateTime?    @map("decided_at")
+  lastSeenAt DateTime?    @map("last_seen_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  user    User  @relation("UserTrustedDevices", fields: [userId], references: [id], onDelete: Cascade)
+  decider User? @relation("TrustedDeviceDecider", fields: [decidedBy], references: [id])
+
+  @@unique([userId, deviceId])
+  @@index([userId, status])
+  @@index([status])
+  @@map("trusted_devices")
 }
 
 // =====================================================================

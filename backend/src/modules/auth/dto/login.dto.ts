@@ -13,6 +13,23 @@ export class LoginDto {
   password: string;
 }
 
+export class RequestDeviceApprovalDto {
+  @ApiProperty({ example: 'ahmed.mohamed', description: 'اسم المستخدم' })
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @ApiProperty({ example: 'StrongP@ss123', description: 'كلمة المرور' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
+  @ApiProperty({ example: 'أعمل من المنزل اليوم', description: 'سبب الدخول من جهاز جديد' })
+  @IsString()
+  @MinLength(5)
+  reason: string;
+}
+
 export class LoginResponseDto {
   @ApiProperty()
   accessToken: string;

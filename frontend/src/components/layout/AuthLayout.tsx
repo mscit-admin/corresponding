@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconHome, IconInbox,
   IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
-  IconHistory, IconShieldLock,
+  IconHistory, IconShieldLock, IconDeviceDesktop,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { href: '/admin/ai-settings', label: 'إعدادات الذكاء الاصطناعي', icon: IconSparkles, adminOnly: true },
   { href: '/admin/audit-log', label: 'سجلّ التعديلات', icon: IconHistory, superAdminOnly: true },
   { href: '/admin/access-log', label: 'سجلّ الوصول', icon: IconShieldLock, superAdminOnly: true },
+  { href: '/admin/device-approvals', label: 'اعتماد الأجهزة', icon: IconDeviceDesktop, superAdminOnly: true },
   { href: '/settings', label: 'الإعدادات', icon: IconSettings, disabled: true },
 ];
 

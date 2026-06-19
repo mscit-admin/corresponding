@@ -47,6 +47,36 @@ import type { LoginResponse, UserDetail, IncomingCorrespondence, PaginatedRespon
 export const authApi = {
   login: (username: string, password: string) =>
     api.post<LoginResponse>('/auth/login', { username, password }).then((r) => r.data),
+  requestDeviceApproval: (username: string, password: string, reason: string) =>
+    api
+      .post<{ ok: boolean; message: string }>('/auth/request-device-approval', { username, password, reason })
+      .then((r) => r.data),
+};
+
+export interface DeviceApproval {
+  id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason: string | null;
+  label: string | null;
+  deviceId: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  deviceHost: string | null;
+  deviceMac: string | null;
+  employeeName: string | null;
+  jobNo: string | null;
+  department: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+}
+
+export const deviceApprovalsApi = {
+  list: (status?: 'pending' | 'approved' | 'rejected') =>
+    api.get<DeviceApproval[]>('/auth/device-approvals', { params: status ? { status } : {} }).then((r) => r.data),
+  approve: (id: string) => api.post(`/auth/device-approvals/${id}/approve`).then((r) => r.data),
+  reject: (id: string) => api.post(`/auth/device-approvals/${id}/reject`).then((r) => r.data),
 };
 
 export const usersApi = {
