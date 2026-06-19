@@ -55,6 +55,18 @@ services:
       # بجوار هذا الملف: ANTHROPIC_API_KEY=sk-ant-...  (تبقى الميزة معطّلة إن تُرك فارغاً)
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-opus-4-8}"
+      # البريد (SMTP) — لإرسال رمز التحقّق (OTP) عند الاعتماد والدخول الخارجي.
+      # ضع القيم في ملف .env بجوار هذا الملف. إن تُرك SMTP_HOST فارغاً يُسجَّل
+      # الرمز في سجلّ الخادم (وضع تطوير) ولا يُرسَل بريد فعلي.
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_SECURE: "${SMTP_SECURE:-false}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      SMTP_FROM: "${SMTP_FROM:-نظام الأرشفة <no-reply@gsdms.local>}"
+      # تحديد المعدّل (Rate limiting)
+      RATE_LIMIT_TTL: "${RATE_LIMIT_TTL:-60}"
+      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-100}"
     volumes:
       - uploads_data:/app/uploads
 
