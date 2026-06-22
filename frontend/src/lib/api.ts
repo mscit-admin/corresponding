@@ -271,8 +271,27 @@ export const logsApi = {
     api.get<LogResult>('/logs/access', { params }).then((r) => r.data),
 };
 
+export interface IncomingSearchParams {
+  skip?: number;
+  take?: number;
+  status?: string;
+  search?: string;
+  myInbox?: boolean;
+  // البحث المتقدّم
+  serialNo?: string;
+  subject?: string;
+  senderEntityId?: string;
+  userQuery?: string;
+  transactionType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  hasAttachments?: boolean;
+  attachmentName?: string;
+  ocr?: string;
+}
+
 export const incomingApi = {
-  list: (params?: { skip?: number; take?: number; status?: string; search?: string; myInbox?: boolean }) =>
+  list: (params?: IncomingSearchParams) =>
     api.get<PaginatedResponse<IncomingCorrespondence>>('/correspondence/incoming', { params }).then((r) => r.data),
   getById: (id: string) =>
     api.get<IncomingCorrespondence>(`/correspondence/incoming/${id}`).then((r) => r.data),

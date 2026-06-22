@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   IconArchive, IconSearch, IconHome, IconInbox,
   IconFileText, IconSend, IconChartBar, IconUsers, IconSettings, IconLogout, IconSparkles,
-  IconHistory, IconShieldLock, IconDeviceDesktop, IconScan, IconWorld, IconNetwork,
+  IconHistory, IconShieldLock, IconDeviceDesktop, IconScan, IconWorld, IconNetwork, IconFileSearch,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'الرئيسية', icon: IconHome },
   { href: '/inbox', label: 'صندوق الوارد', icon: IconInbox, badge: '24' },
+  { href: '/search', label: 'البحث المتقدّم', icon: IconFileSearch },
   { href: '/outgoing', label: 'الصادر', icon: IconSend, disabled: true },
   { href: '/archive', label: 'الأرشيف', icon: IconFileText, disabled: true },
   { href: '/reports', label: 'التقارير', icon: IconChartBar, disabled: true },

@@ -174,7 +174,11 @@ export class IncomingService {
   }
 
   async findAll(params: any, user?: any) {
-    const { skip = 0, take = 20, status, search } = params || {};
+    const {
+      skip = 0, take = 20, status, search,
+      serialNo, subject, senderEntityId, userQuery, transactionType,
+      dateFrom, dateTo, hasAttachments, attachmentName, ocr,
+    } = params || {};
     const userIdBig = user?.id ? BigInt(user.id) : undefined;
     const deptBig = user?.departmentId ? BigInt(user.departmentId) : undefined;
     const isManager = MANAGER_ROLES.includes(user?.role?.name);
@@ -194,6 +198,58 @@ export class IncomingService {
         ],
       });
     }
+
+    // ===== مرشّحات البحث المتقدّم =====
+    if (serialNo) {
+      and.push({
+        OR: [
+          { serialNo: { contains: serialNo } },
+          { registryNo: { contains: serialNo } },
+          { senderRefNo: { contains: serialNo } },
+        ],
+      });
+    }
+    if (subject) and.push({ subject: { contains: subject } });
+    if (senderEntityId && /^\d+$/.test(String(senderEntityId))) {
+      and.push({ senderEntityId: BigInt(senderEntityId) });
+    }
+    if (transactionType) and.push({ transactionType: { contains: transactionType } });
+    // المستخدم (المُسجِّل) بالاسم أو الرقم الوظيفي
+    if (userQuery) {
+      and.push({
+        creator: {
+          OR: [
+            { fullName: { contains: userQuery } },
+            { fullNameAr: { contains: userQuery } },
+            { username: { contains: userQuery } },
+          ],
+        },
+      });
+    }
+    // نطاق تاريخ الورود (شامل لليوم الأخير)
+    if (dateFrom || dateTo) {
+      const range: any = {};
+      if (dateFrom) range.gte = new Date(`${dateFrom}T00:00:00.000`);
+      if (dateTo) range.lte = new Date(`${dateTo}T23:59:59.999`);
+      and.push({ receivedAt: range });
+    }
+    // مرشّحات المرفقات و OCR (جدول attachments خارج Prisma — استعلام مُعامَل)
+    const wantAttachments = hasAttachments === 'true' || hasAttachments === true;
+    if (wantAttachments || attachmentName || ocr) {
+      const conds: string[] = [];
+      const args: any[] = [];
+      if (attachmentName) { conds.push('original_name LIKE ?'); args.push(`%${attachmentName}%`); }
+      if (ocr) { conds.push('ocr_text LIKE ?'); args.push(`%${ocr}%`); }
+      const extra = conds.length ? ` AND ${conds.join(' AND ')}` : '';
+      const rows = await this.prisma.$queryRawUnsafe<any[]>(
+        `SELECT DISTINCT correspondence_id AS id FROM attachments
+         WHERE correspondence_type = 'incoming'${extra}`,
+        ...args,
+      );
+      const matchedIds = rows.map((r) => BigInt(r.id));
+      and.push({ id: { in: matchedIds.length ? matchedIds : [BigInt(-1)] } });
+    }
+
     // Visibility filter (managers see everything)
     if (!isManager && userIdBig) {
       const vis: any[] = [
