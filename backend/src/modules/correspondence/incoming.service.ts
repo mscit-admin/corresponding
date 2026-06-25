@@ -59,6 +59,12 @@ const CLEARANCE_BY_ROLE: Record<string, string> = {
 };
 const CONF_RANK: Record<string, number> = { normal: 0, secret: 1, top_secret: 2 };
 
+// مطابقة الفلاتر السريعة (التبويبات) إلى شروط الاستعلام
+const URGENT_PRIORITIES = ['urgent', 'immediate', 'top_secret'];
+const DONE_STATUSES = ['approved', 'responded', 'closed'];
+// الحالات التي تُعدّ المعاملة فيها «منجزة» (لا تُحتسب ضمن التأخير/المهلة)
+const COMPLETED_STATUSES = ['approved', 'responded', 'closed', 'archived', 'rejected'];
+
 // رتبة تصريح المستخدم حسب دوره (الافتراضي: عادي)
 const clearanceRank = (roleName?: string): number =>
   CONF_RANK[CLEARANCE_BY_ROLE[roleName || ''] ?? 'normal'] ?? 0;
@@ -156,6 +162,9 @@ export class IncomingService {
         });
       }
 
+      // إشعار معاملة جديدة: المدراء (super_admin + archive_mgr) + أعضاء الإدارة المستهدفة
+      void this.notifyNewIncoming(correspondence, data.visibilityDeptIds, userIdBig);
+
       this.logger.log(`✓ Created correspondence id: ${correspondence.id}, serial: ${serialNo}`);
 
       return serializeBigInt(correspondence);
@@ -175,7 +184,7 @@ export class IncomingService {
 
   async findAll(params: any, user?: any) {
     const {
-      skip = 0, take = 20, status, search,
+      skip = 0, take = 20, status, priority, filter, myInbox, search,
       serialNo, subject, senderEntityId, userQuery, transactionType,
       dateFrom, dateTo, hasAttachments, attachmentName, ocr,
     } = params || {};
@@ -186,6 +195,42 @@ export class IncomingService {
     const where: any = {};
     const and: any[] = [];
     if (status) where.status = status;
+    if (priority) and.push({ priority });
+
+    // ===== الفلاتر السريعة (التبويبات) =====
+    const wantMine = myInbox === true || myInbox === 'true' || filter === 'mine';
+    switch (filter) {
+      case 'new':
+        and.push({ status: 'new' });
+        break;
+      case 'urgent':
+        and.push({ priority: { in: URGENT_PRIORITIES } });
+        break;
+      case 'done':
+        and.push({ status: { in: DONE_STATUSES } });
+        break;
+      case 'archived':
+        and.push({ status: 'archived' });
+        break;
+      case 'department':
+        // معاملات الإدارة: المرئية/الموجَّهة لإدارة المستخدم (لا شيء إن لم يكن له إدارة)
+        and.push(
+          deptBig
+            ? { visibilityDepts: { some: { departmentId: deptBig } } }
+            : { id: { in: [BigInt(-1)] } },
+        );
+        break;
+      default:
+        break;
+    }
+    // الخاصة بالمستخدم: المعاملات التي أنشأها أو يملكها حالياً
+    if (wantMine) {
+      and.push(
+        userIdBig
+          ? { OR: [{ createdBy: userIdBig }, { currentOwnerId: userIdBig }] }
+          : { id: { in: [BigInt(-1)] } },
+      );
+    }
     if (search) {
       and.push({
         OR: [
@@ -448,7 +493,24 @@ export class IncomingService {
       createdAt: a.createdAt,
     }));
 
-    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames, routings, actions });
+    // وقت/مدة التنفيذ: من ورود المعاملة حتى آخر إجراء أنجزها (اعتماد/رد/إغلاق/أرشفة)
+    const completionAction = [...item.actions]
+      .reverse()
+      .find((a) => a.toStatus && COMPLETED_STATUSES.includes(a.toStatus));
+    const completedAt = completionAction?.createdAt ?? null;
+    const ongoing = !completedAt;
+    const endTs = (completedAt ?? new Date()).getTime();
+    const durationMs = Math.max(0, endTs - item.receivedAt.getTime());
+    const executionTime = {
+      startedAt: item.receivedAt,
+      completedAt,
+      ongoing, // المعاملة ما زالت قيد التنفيذ
+      durationMs,
+      durationHours: Math.round((durationMs / 36e5) * 10) / 10,
+      durationDays: Math.round((durationMs / 864e5) * 10) / 10,
+    };
+
+    return serializeBigInt({ ...item, attachments, viewers, visibilityDeptIds, visibilityDeptNames, routings, actions, executionTime });
   }
 
   async findOne(id: any, user?: any) {
@@ -873,6 +935,48 @@ export class IncomingService {
 
     this.logger.log(`✓ Action '${action}' on incoming ${idBig} by ${user?.username}`);
     return this.findById(idBig, user);
+  }
+
+  /**
+   * إشعار بتسجيل وارد جديد: يصل المدراء (super_admin + archive_mgr) وأعضاء
+   * الإدارة المستهدفة (إن حُدِّدت عند الإنشاء)، باستثناء مُنشئ المعاملة.
+   */
+  private async notifyNewIncoming(item: any, visibilityDeptIds: any, creatorId: bigint) {
+    try {
+      const recipients = new Set<string>();
+
+      // المدراء
+      const managers = await this.prisma.user.findMany({
+        where: { isActive: true, role: { name: { in: MANAGER_ROLES } } },
+        select: { id: true },
+      });
+      managers.forEach((m) => recipients.add(m.id.toString()));
+
+      // أعضاء الإدارة المستهدفة (إن وُجدت قائمة عند الإنشاء)
+      const deptIds: any[] = Array.isArray(visibilityDeptIds) ? visibilityDeptIds : [];
+      if (deptIds.length) {
+        const members = await this.prisma.user.findMany({
+          where: { isActive: true, departmentId: { in: deptIds.map((d) => BigInt(d)) } },
+          select: { id: true },
+        });
+        members.forEach((m) => recipients.add(m.id.toString()));
+      }
+
+      // استثناء المُنشئ
+      recipients.delete(creatorId.toString());
+      if (!recipients.size) return;
+
+      await this.notifications.notifyMany([...recipients].map((id) => BigInt(id)), {
+        type: 'system',
+        title: 'معاملة واردة جديدة',
+        body: `${item.serialNo} — ${item.subject}`,
+        actionUrl: `/inbox/${item.id}`,
+        relatedType: 'incoming',
+        relatedId: item.id,
+      });
+    } catch (e: any) {
+      this.logger.warn(`Could not send new-incoming notifications: ${e.message}`);
+    }
   }
 
   /** Notify the members of the given departments (excluding the actor). */

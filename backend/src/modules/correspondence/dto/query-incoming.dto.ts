@@ -24,6 +24,14 @@ export class QueryIncomingDto {
   @IsEnum(Priority)
   priority?: Priority;
 
+  @ApiPropertyOptional({
+    description: 'فلتر سريع جاهز (تبويب): new=الجديدة، urgent=العاجلة، done=المنجزة، archived=المؤرشفة، department=الخاصة بالإدارة، mine=الخاصة بالمستخدم',
+    enum: ['new', 'urgent', 'done', 'archived', 'department', 'mine'],
+  })
+  @IsOptional()
+  @IsEnum(['new', 'urgent', 'done', 'archived', 'department', 'mine'] as any)
+  filter?: 'new' | 'urgent' | 'done' | 'archived' | 'department' | 'mine';
+
   @ApiPropertyOptional({ description: 'بحث عام في الموضوع والأرقام والجهة' })
   @IsOptional()
   @IsString()
